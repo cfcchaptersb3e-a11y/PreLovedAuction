@@ -73,7 +73,7 @@ export function ItemManager({
 
       {items.length === 0 ? (
         <div className="card p-8 text-center text-muted">
-          <p>No items yet. Add the first donated item above.</p>
+          <p>No items yet. Add the first provided item above.</p>
         </div>
       ) : (
         <div className="space-y-3">

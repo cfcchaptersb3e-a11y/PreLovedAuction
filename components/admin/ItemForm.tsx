@@ -105,7 +105,7 @@ export function ItemForm({
       <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <label className="label" htmlFor="donorName">
-            Donated by
+            Provided by
           </label>
           <input
             id="donorName"

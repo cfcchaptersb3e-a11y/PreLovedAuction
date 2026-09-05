@@ -99,7 +99,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
               )}
               {item.donorName && (
                 <div>
-                  <dt className="text-xs text-muted">Donated by</dt>
+                  <dt className="text-xs text-muted">Provided by</dt>
                   <dd className="font-medium">{item.donorName}</dd>
                 </div>
               )}

@@ -88,7 +88,7 @@ async function main() {
       slug,
       tagline: "Pre-loved treasures from our members, raising funds for the chapter",
       description:
-        "Every item here was donated by a chapter family. Proceeds go towards our chapter's outreach and formation activities. Bid generously!",
+        "Every item here was provided by a chapter family. Proceeds go towards our chapter's outreach and formation activities. Bid generously!",
       currency: "PHP",
       goalCents: 5_000_00,
       status: "OPEN",

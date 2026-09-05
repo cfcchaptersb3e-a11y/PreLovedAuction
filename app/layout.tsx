@@ -9,7 +9,7 @@ import { MobileNav } from "@/components/MobileNav";
 export const metadata: Metadata = {
   title: "CFC SB3E Pre-Loved Auction",
   description:
-    "An online auction of pre-loved items donated by members of our CFC SB3E chapter, raising funds for chapter activities.",
+    "An online auction of pre-loved items provided by members of our CFC SB3E chapter, raising funds for chapter activities.",
 };
 
 export const viewport: Viewport = {
@@ -87,7 +87,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <div className="mx-auto w-full max-w-6xl px-4 py-8 text-sm text-muted">
             <p className="font-semibold text-ink">CFC SB3E Chapter Pre-Loved Auction</p>
             <p className="mt-1 max-w-prose">
-              Every item here was donated by a chapter member, and every peso raised goes to our
+              Every item here was provided by a chapter member, and every peso raised goes to our
               chapter&rsquo;s activities. Thank you for bidding and for your support.
             </p>
             <p className="mt-4 text-xs">

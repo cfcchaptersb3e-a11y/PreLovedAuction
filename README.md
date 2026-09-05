@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/cfcchaptersb3e-a11y/PreLovedAuction/actions/workflows/ci.yml/badge.svg)](https://github.com/cfcchaptersb3e-a11y/PreLovedAuction/actions/workflows/ci.yml)
 
-An online auction for our chapter's fundraising drives. Members donate pre-loved
+An online auction for our chapter's fundraising drives. Members provide pre-loved
 items, organisers list them, and members' family and friends bid from their
 phones. When an auction ends the app records the winners, emails them, and gives
 organisers a list to reconcile payments against.
@@ -93,18 +93,48 @@ and the auction-rule checks against a throwaway PostgreSQL service, via
    | `EMAIL_FROM` | e.g. `CFC SB3E Auction <auction@yourdomain.org>` |
    | `BLOB_READ_WRITE_TOKEN` | Set automatically if you add Vercel Blob storage |
 
-5. Deploy, then run the schema against the new database once, from your machine:
-
-   ```bash
-   DATABASE_URL="<the production URL>" npm run db:push
-   ```
+5. Deploy. The database tables are created for you — `vercel.json` sets a build
+   command that applies the schema before building, so there is no terminal step
+   and nothing to run from a laptop.
 
 6. Visit `/login`, sign in with an email from `ADMIN_EMAILS`, and you'll land in
    the organiser tools.
 
-`vercel.json` already registers a cron job that closes finished items every five
-minutes. Pages also close overdue items when they're viewed, so results stay
-correct even if a cron run is missed.
+### How items close
+
+An item closes and its winner is emailed through three mechanisms, so nothing
+depends on a single one working:
+
+1. **The countdown.** When an item's clock reaches zero, any open page refreshes
+   itself, which settles the item there and then. In practice this is what closes
+   most items — people are watching as an auction ends.
+2. **Any page view.** Every page settles overdue items when it loads, so the
+   first person to open the site catches anything missed.
+3. **A daily cron job**, registered in `vercel.json`, as a backstop.
+
+The cron runs only once a day because Vercel's free Hobby plan allows no more
+than that (and only guarantees the hour it runs in). That is fine here: the cron
+is the last line of defence, not the primary one.
+
+The practical consequence is that if an item ends when nobody is on the site,
+its winner's email can be delayed until someone next opens a page. Bidding is
+still correctly closed the instant the clock runs out — a late bid is rejected
+whatever the item's recorded status — so no one can win an item after time.
+Upgrading to Vercel Pro would allow a per-minute cron if you ever want the
+notification to be immediate regardless.
+
+### About the automatic schema step
+
+The build runs `prisma db push`, which is safe to repeat: on the first deploy it
+creates the tables, and on every deploy after that it does nothing unless the
+schema changed. Existing auction data is untouched.
+
+It deliberately runs *without* `--accept-data-loss`. If a future schema change
+would destroy data — dropping a column that still holds bids, say — the deploy
+fails rather than going through with it. That is the behaviour you want mid-
+auction, but it does mean such a change needs handling deliberately: make the
+change in two steps (add the new shape, migrate the data, then remove the old),
+or apply it by hand with `npm run db:push` against the production database.
 
 ### Email
 
@@ -128,7 +158,7 @@ Pasting image links always works.
 
 1. **Organiser tools → New auction.** Name it, set the goal and the currency,
    and write the payment and pickup instructions — winners get these by email.
-2. **Add the items.** Photos, an honest description, who donated it, a starting
+2. **Add the items.** Photos, an honest description, who provided it, a starting
    bid and an increment. Set a reserve if an item shouldn't sell below a price.
    Items start as drafts and aren't visible to anyone yet.
 3. **Open for bidding.** Every draft item goes live at once. Share the link.
