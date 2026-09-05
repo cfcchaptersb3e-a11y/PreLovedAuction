@@ -274,7 +274,9 @@ export async function updateItem(
 }
 
 export async function setItemStatus(itemId: string, status: ItemStatus): Promise<void> {
-  await requireCapability("items");
+  // Withdrawing pulls an item out from under people who have already bid on
+  // it, so it stays with organizers even though other item changes do not.
+  await requireCapability(status === "CANCELLED" ? "events" : "items");
   const item = await db.item.findUnique({ where: { id: itemId } });
   if (!item) return;
 
@@ -337,11 +339,11 @@ export async function setUserRole(userId: string, role: Role): Promise<void> {
   const actor = await requireCapability("people");
 
   if (!ASSIGNABLE_ROLES.includes(role)) {
-    throw new Error("That isn't a role we recognise.");
+    throw new Error("That isn't a role we recognize.");
   }
   if (actor.id === userId && role !== "ADMIN") {
     throw new Error(
-      "You can't remove your own organiser access — ask another organiser to do it."
+      "You can't remove your own organizer access — ask another organizer to do it."
     );
   }
 

@@ -20,7 +20,7 @@ export function RoleSelect({
 
   if (isSelf) {
     return (
-      <span className="chip bg-forest-light text-forest" title="Ask another organiser to change this">
+      <span className="chip bg-forest-light text-forest" title="Ask another organizer to change this">
         {ROLE_LABELS[current]} (you)
       </span>
     );
@@ -39,7 +39,7 @@ export function RoleSelect({
           if (
             next === "ADMIN" &&
             !window.confirm(
-              "Give this person full organiser access? They'll be able to manage auctions, items, payments and other people's roles."
+              "Give this person full organizer access? They'll be able to manage auctions, items, payments and other people's roles."
             )
           ) {
             return;

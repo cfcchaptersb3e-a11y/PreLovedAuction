@@ -12,7 +12,7 @@ const ITEMS = [
   {
     title: "Vintage leather handbag",
     description:
-      "Genuine leather, warm tan colour, with a detachable strap. Gently used and well cared for — some softening at the corners, which honestly makes it look better.",
+      "Genuine leather, warm tan color, with a detachable strap. Gently used and well cared for — some softening at the corners, which honestly makes it look better.",
     category: "Bags",
     condition: "Very good",
     donorName: "The Cruz family",

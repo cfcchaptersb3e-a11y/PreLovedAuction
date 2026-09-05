@@ -21,7 +21,7 @@ export default function ErrorPage({
       </p>
       <h1 className="mt-3 text-xl font-bold">Something went wrong</h1>
       <p className="mt-2 text-muted">
-        Sorry about that. Try again — if it keeps happening, let a chapter organiser know.
+        Sorry about that. Try again — if it keeps happening, let a chapter organizer know.
       </p>
       <div className="mt-6 flex justify-center gap-2">
         <button type="button" onClick={reset} className="btn-primary">

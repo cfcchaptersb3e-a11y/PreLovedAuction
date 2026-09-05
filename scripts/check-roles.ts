@@ -31,16 +31,19 @@ for (const role of ASSIGNABLE_ROLES) {
 }
 
 check("a bidder is not staff", !isStaff("BIDDER"));
-check("a cataloguer is staff", isStaff("CATALOGUER"));
+check("a cataloger is staff", isStaff("CATALOGUER"));
 check("a treasurer is staff", isStaff("TREASURER"));
-check("an organiser is staff", isStaff("ADMIN"));
+check("an organizer is staff", isStaff("ADMIN"));
 
-check("only organisers can grant roles",
+check("only organizers can grant roles",
   ASSIGNABLE_ROLES.filter((r) => can(r, "people")).join(",") === "ADMIN");
-check("only organisers can open or close an auction",
+check("only organizers can open or close an auction",
   ASSIGNABLE_ROLES.filter((r) => can(r, "events")).join(",") === "ADMIN");
-check("cataloguers cannot see payments", !can("CATALOGUER", "payments"));
+check("catalogers cannot see payments", !can("CATALOGUER", "payments"));
 check("treasurers cannot change items", !can("TREASURER", "items"));
+
+check("withdrawing an item needs organizer access, not just item access",
+  !can("CATALOGUER", "events") && can("ADMIN", "events"));
 
 check("every role has a label and a description",
   ASSIGNABLE_ROLES.every((r) => ROLE_LABELS[r]?.length > 0 && ROLE_DESCRIPTIONS[r]?.length > 0));

@@ -53,7 +53,7 @@ export function parseSender(from: string): { name?: string; email: string } {
 
 /**
  * How the deployment is configured to send email, and what is wrong with it.
- * Shown to organisers so a misconfiguration is found before an auction opens
+ * Shown to organizers so a misconfiguration is found before an auction opens
  * rather than reported by a bidder who never got their link.
  */
 export function emailStatus(): {
@@ -94,11 +94,11 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Turns a Resend rejection into something a chapter organiser can act on. */
+/** Turns a Resend rejection into something a chapter organizer can act on. */
 function explainResendFailure(status: number, body: string): string {
   const lower = body.toLowerCase();
   if (status === 403 && lower.includes("testing emails")) {
-    return "Resend is still in testing mode for this account, so it will only deliver to the organiser's own address. Verify a sending domain in Resend to email everyone else.";
+    return "Resend is still in testing mode for this account, so it will only deliver to the organizer's own address. Verify a sending domain in Resend to email everyone else.";
   }
   if (status === 401 || status === 403) {
     return "The email service rejected our API key. Check RESEND_API_KEY in the deployment settings.";
@@ -112,14 +112,14 @@ function explainResendFailure(status: number, body: string): string {
   return `The email service returned ${status}.`;
 }
 
-/** Turns a Brevo rejection into something a chapter organiser can act on. */
+/** Turns a Brevo rejection into something a chapter organizer can act on. */
 function explainBrevoFailure(status: number, body: string): string {
   const lower = body.toLowerCase();
   if (status === 401) {
     return "Brevo rejected our API key. Check BREVO_API_KEY in the deployment settings.";
   }
   if (lower.includes("sender") && (lower.includes("not valid") || lower.includes("not found"))) {
-    return "Brevo does not recognise the sender address. Add it under Senders in Brevo and confirm the code it emails you, then make sure EMAIL_FROM matches it exactly.";
+    return "Brevo does not recognize the sender address. Add it under Senders in Brevo and confirm the code it emails you, then make sure EMAIL_FROM matches it exactly.";
   }
   if (status === 402 || lower.includes("credit")) {
     return "Brevo's daily sending allowance for this account has run out. It resets tomorrow.";
@@ -310,12 +310,12 @@ export async function sendWinnerEmail(params: {
            ? `<div style="margin:18px 0 0;padding:14px 16px;background:#f6f5f2;border-radius:10px;font-size:14px;line-height:1.6;white-space:pre-wrap">${escapeHtml(
                params.paymentInstructions
              )}</div>`
-           : `<p style="margin:16px 0 0;font-size:15px;line-height:1.6">A chapter organiser will be in touch about payment and pickup.</p>`
+           : `<p style="margin:16px 0 0;font-size:15px;line-height:1.6">A chapter organizer will be in touch about payment and pickup.</p>`
        }`,
       { label: "View my wins", url }
     ),
     text: `Congratulations! You won "${params.itemTitle}" with a bid of ${amount}.\n\n${
-      params.paymentInstructions ?? "A chapter organiser will be in touch about payment and pickup."
+      params.paymentInstructions ?? "A chapter organizer will be in touch about payment and pickup."
     }\n\nSee your wins: ${url}`,
   });
 }

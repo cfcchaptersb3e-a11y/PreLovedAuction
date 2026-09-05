@@ -53,7 +53,7 @@ export function ItemForm({
   const [images, setImages] = useState<string[]>(item?.imageUrls ?? []);
 
   // After a successful create the form is reset so the next item can be typed
-  // straight in — organisers usually add many items in one sitting.
+  // straight in — organizers usually add many items in one sitting.
   const created = Boolean(state.message && !item);
 
   return (
@@ -95,7 +95,7 @@ export function ItemForm({
           name="description"
           rows={3}
           defaultValue={item?.description ?? ""}
-          placeholder="Size, colour, brand, any marks or wear — be honest, bidders appreciate it."
+          placeholder="Size, color, brand, any marks or wear — be honest, bidders appreciate it."
           className="field"
         />
       </div>

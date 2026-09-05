@@ -16,14 +16,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!isStaff(user.role)) redirect("/");
 
   const tabs = TABS.filter((tab) => can(user.role, tab.capability));
-  // Only organisers set up the email service, so only they need telling.
+  // Only organizers set up the email service, so only they need telling.
   const email = can(user.role, "events") ? emailStatus() : { configured: true, warning: null };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3 border-b border-line pb-4">
         <div className="mr-auto">
-          <h1 className="text-xl font-bold">Organiser tools</h1>
+          <h1 className="text-xl font-bold">Organizer tools</h1>
           <p className="text-sm text-muted">
             Signed in as {user.email} ·{" "}
             <span className="font-medium text-ink">{ROLE_LABELS[user.role]}</span>

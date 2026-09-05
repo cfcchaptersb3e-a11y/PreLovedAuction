@@ -33,16 +33,16 @@ export function can(role: Role, capability: Capability): boolean {
   return CAPABILITIES[role].includes(capability);
 }
 
-/** True for anyone with a reason to open the organiser tools at all. */
+/** True for anyone with a reason to open the organizer tools at all. */
 export function isStaff(role: Role): boolean {
   return CAPABILITIES[role].length > 0;
 }
 
 export const ROLE_LABELS: Record<Role, string> = {
   BIDDER: "Bidder",
-  CATALOGUER: "Cataloguer",
+  CATALOGUER: "Cataloger",
   TREASURER: "Treasurer",
-  ADMIN: "Organiser",
+  ADMIN: "Organizer",
 };
 
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
@@ -57,7 +57,7 @@ export const ASSIGNABLE_ROLES: readonly Role[] = ["BIDDER", "CATALOGUER", "TREAS
 
 /**
  * Where to send someone after signing in, and where to bounce them if they
- * land on an organiser page their role can't open. Every staff role has a
+ * land on an organizer page their role can't open. Every staff role has a
  * page it can actually see, so nobody meets an error screen.
  */
 export function staffLandingPath(role: Role): string {

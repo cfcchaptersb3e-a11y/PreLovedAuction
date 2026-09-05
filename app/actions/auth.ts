@@ -10,7 +10,7 @@ import {
   createAccount,
   createPasswordResetToken,
   endSession,
-  normaliseEmail,
+  normalizeEmail,
   passwordProblem,
   requireUser,
   signInWithPassword,
@@ -30,7 +30,7 @@ function field(formData: FormData, key: string): string {
 // ------------------------------------------------------------------ sign in
 
 export async function signIn(_prev: FormState, formData: FormData): Promise<FormState> {
-  const email = normaliseEmail(field(formData, "email"));
+  const email = normalizeEmail(field(formData, "email"));
   const password = String(formData.get("password") ?? "");
 
   if (!EMAIL_PATTERN.test(email) || !password) {
@@ -58,13 +58,13 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
 // ------------------------------------------------------------------ sign up
 
 export async function signUp(_prev: FormState, formData: FormData): Promise<FormState> {
-  const email = normaliseEmail(field(formData, "email"));
+  const email = normalizeEmail(field(formData, "email"));
   const password = String(formData.get("password") ?? "");
   const name = field(formData, "name");
   const phone = field(formData, "phone");
 
   if (!EMAIL_PATTERN.test(email)) return { error: "Please enter a valid email address." };
-  if (!name) return { error: "Please enter your name, so organisers know who you are." };
+  if (!name) return { error: "Please enter your name, so organizers know who you are." };
 
   const problem = passwordProblem(password);
   if (problem) return { error: problem };
@@ -96,7 +96,7 @@ export async function requestPasswordReset(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const email = normaliseEmail(field(formData, "email"));
+  const email = normalizeEmail(field(formData, "email"));
   if (!EMAIL_PATTERN.test(email)) return { error: "Please enter a valid email address." };
 
   // Always the same answer, so this can't be used to discover who has an account.
@@ -114,7 +114,7 @@ export async function requestPasswordReset(
     if (error instanceof EmailError) {
       return {
         error:
-          "We couldn't send the reset link — the auction's email isn't working right now. Please tell a chapter organiser.",
+          "We couldn't send the reset link — the auction's email isn't working right now. Please tell a chapter organizer.",
       };
     }
     return { error: "We couldn't send the link just now. Please try again in a moment." };

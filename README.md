@@ -3,9 +3,9 @@
 [![CI](https://github.com/cfcchaptersb3e-a11y/PreLovedAuction/actions/workflows/ci.yml/badge.svg)](https://github.com/cfcchaptersb3e-a11y/PreLovedAuction/actions/workflows/ci.yml)
 
 An online auction for our chapter's fundraising drives. Members provide pre-loved
-items, organisers list them, and members' family and friends bid from their
+items, organizers list them, and members' family and friends bid from their
 phones. When an auction ends the app records the winners, emails them, and gives
-organisers a list to reconcile payments against.
+organizers a list to reconcile payments against.
 
 Each fundraiser is a separate **auction event** with its own items, its own goal
 and its own running total — so when the chapter fundraises again, the "raised so
@@ -28,15 +28,15 @@ job and nobody breaks the auction by accident:
 
 | Role | Can | Cannot |
 | --- | --- | --- |
-| **Bidder** | Browse and bid. Everyone starts here. | Anything in the organiser tools |
-| **Cataloguer** | Add and edit items, upload photos | Open or close an auction; see winners or payments |
+| **Bidder** | Browse and bid. Everyone starts here. | Anything in the organizer tools |
+| **Cataloger** | Add and edit items, upload photos | Open or close an auction; see winners or payments |
 | **Treasurer** | Work the winners list, mark paid and collected, export the CSV | Change items or auctions |
-| **Organiser** | Everything, including granting roles | — |
+| **Organizer** | Everything, including granting roles | — |
 
-Organisers change roles under **People**. Anyone whose address is listed in
-`ADMIN_EMAILS` becomes an organiser when they sign up.
+Organizers change roles under **People**. Anyone whose address is listed in
+`ADMIN_EMAILS` becomes an organizer when they sign up.
 
-**For organisers**
+**For organizers**
 - Create an auction, set the goal, the currency and the payment/pickup instructions
 - Add items with photos (upload from a phone, or paste image links), a starting
   bid, a bid increment and an optional hidden reserve price
@@ -44,7 +44,7 @@ Organisers change roles under **People**. Anyone whose address is listed in
 - See a live fundraising total against the goal
 - Work a winners list showing contact details, amounts and paid/collected status,
   and export it to CSV for reconciliation
-- Grant organiser access to other members
+- Grant organizer access to other members
 
 **Fair bidding, built in**
 - A bid placed in the final 2 minutes pushes the closing time out by 2 minutes, so
@@ -67,7 +67,7 @@ npm run dev
 
 Open http://localhost:3000.
 
-To become an organiser, put your email in `ADMIN_EMAILS` in `.env`, then create
+To become an organizer, put your email in `ADMIN_EMAILS` in `.env`, then create
 an account at `/signup` with that address — it is made an admin automatically.
 
 Without an email provider configured, no mail is actually sent; each message is
@@ -107,7 +107,7 @@ and the auction-rule checks against a throwaway PostgreSQL service, via
    | --- | --- |
    | `AUTH_SECRET` | A random string. Generate with `openssl rand -base64 32`. |
    | `APP_URL` | Your deployed URL, e.g. `https://sb3e-auction.vercel.app` |
-   | `ADMIN_EMAILS` | Organisers' emails, comma separated |
+   | `ADMIN_EMAILS` | Organizers' emails, comma separated |
    | `CRON_SECRET` | Another random string (Vercel sends it to the closing job) |
    | `RESEND_API_KEY` | Optional but recommended — see below |
    | `EMAIL_FROM` | e.g. `CFC SB3E Auction <auction@yourdomain.org>` |
@@ -118,7 +118,7 @@ and the auction-rule checks against a throwaway PostgreSQL service, via
    and nothing to run from a laptop.
 
 6. Visit `/login`, sign in with an email from `ADMIN_EMAILS`, and you'll land in
-   the organiser tools.
+   the organizer tools.
 
 ### How items close
 
@@ -151,7 +151,7 @@ schema changed. Existing auction data is untouched.
 
 It deliberately runs *without* `--accept-data-loss`. If a future schema change
 would destroy data — dropping a column that still holds bids, say — the deploy
-fails rather than going through with it. That is the behaviour you want mid-
+fails rather than going through with it. That is the behavior you want mid-
 auction, but it does mean such a change needs handling deliberately: make the
 change in two steps (add the new shape, migrate the data, then remove the old),
 or apply it by hand with `npm run db:push` against the production database.
@@ -161,7 +161,7 @@ or apply it by hand with `npm run db:push` against the production database.
 Email is optional in the sense that the app runs without it — messages are
 written to the server log instead — but for a real auction you need it, because
 it carries the outbid and winner notifications, and the password-reset links.
-The organiser tools show a warning until it is set up.
+The organizer tools show a warning until it is set up.
 
 Two providers are supported. Set **one**.
 
@@ -216,7 +216,7 @@ Pasting an image link always works, whatever the storage setup.
 
 ## Running an auction
 
-1. **Organiser tools → New auction.** Name it, set the goal and the currency,
+1. **Organizer tools → New auction.** Name it, set the goal and the currency,
    and write the payment and pickup instructions — winners get these by email.
 2. **Add the items.** Photos, an honest description, who provided it, a starting
    bid and an increment. Set a reserve if an item shouldn't sell below a price.
@@ -236,13 +236,13 @@ Pasting an image link always works, whatever the storage setup.
 
 Next.js (App Router) with server actions, Prisma and PostgreSQL, Tailwind CSS,
 and passwordless email sign-in. No payment processor — winners pay the chapter
-directly by whatever means you put in the payment instructions, and organisers
+directly by whatever means you put in the payment instructions, and organizers
 mark each one paid.
 
 ```
 app/                 pages, server actions and API routes
-  actions/           bidding, auth and organiser mutations
-  admin/             organiser tools
+  actions/           bidding, auth and organizer mutations
+  admin/             organizer tools
   api/               magic-link verification, uploads, the closing cron job
 components/          UI, split into shared and admin/
 lib/

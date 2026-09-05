@@ -33,12 +33,15 @@ export function ItemManager({
   currency,
   defaultEndsAt,
   categories,
+  canWithdraw,
 }: {
   eventId: string;
   items: ManagedItem[];
   currency: string;
   defaultEndsAt: Date | null;
   categories: string[];
+  /** Withdrawing is an organizer's call, so the button is theirs alone. */
+  canWithdraw: boolean;
 }) {
   const [adding, setAdding] = useState(items.length === 0);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -167,7 +170,7 @@ export function ItemManager({
                       action={() => setItemStatus(item.id, "ENDED")}
                     />
                   )}
-                  {(item.status === "LIVE" || item.status === "DRAFT") && (
+                  {canWithdraw && (item.status === "LIVE" || item.status === "DRAFT") && (
                     <ConfirmButton
                       className="btn-danger btn-sm"
                       label="Withdraw"
@@ -175,7 +178,7 @@ export function ItemManager({
                       action={() => setItemStatus(item.id, "CANCELLED")}
                     />
                   )}
-                  {item.status === "CANCELLED" && (
+                  {canWithdraw && item.status === "CANCELLED" && (
                     <ConfirmButton label="Restore" action={() => setItemStatus(item.id, "LIVE")} />
                   )}
                   {item.bidCount === 0 && (
