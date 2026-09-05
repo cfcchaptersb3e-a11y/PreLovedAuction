@@ -8,7 +8,7 @@ import { OperatorConsole } from "@/components/live/OperatorConsole";
 export const dynamic = "force-dynamic";
 
 export default async function LiveConsolePage() {
-  await requirePageCapability("events");
+  await requirePageCapability("live");
 
   const event = await getActiveEvent();
   if (!event) {

@@ -19,14 +19,18 @@ export type Capability =
   | "items"
   /** See winners' contact details, mark paid and collected, export the CSV. */
   | "payments"
+  /** Run the live finale: start lots, record room bids, sell and pass. */
+  | "live"
   /** Grant roles to other people. */
   | "people";
 
 const CAPABILITIES: Record<Role, readonly Capability[]> = {
   BIDDER: [],
   CATALOGUER: ["items"],
-  TREASURER: ["payments"],
-  ADMIN: ["events", "items", "payments", "people"],
+  // The treasurer works the console during the live finale, so the auctioneer
+  // can call the room while somebody else records the bids.
+  TREASURER: ["payments", "live"],
+  ADMIN: ["events", "items", "payments", "people", "live"],
 };
 
 export function can(role: Role, capability: Capability): boolean {
@@ -48,7 +52,8 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   BIDDER: "Can browse and bid. Everyone starts here.",
   CATALOGUER: "Adds and edits items and photos. Can't open or close an auction, or see payments.",
-  TREASURER: "Works the winners list and marks payments. Can't change items or auctions.",
+  TREASURER:
+    "Runs the live auction console, works the winners list and marks payments. Can't change items or auctions.",
   ADMIN: "Full access, including granting these roles.",
 };
 
@@ -64,5 +69,6 @@ export function staffLandingPath(role: Role): string {
   if (can(role, "items")) return "/admin";
   if (can(role, "payments")) return "/admin/winners";
   if (can(role, "people")) return "/admin/people";
+  if (can(role, "live")) return "/admin/live";
   return "/";
 }

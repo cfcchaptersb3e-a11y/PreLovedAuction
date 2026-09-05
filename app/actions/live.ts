@@ -17,7 +17,7 @@ function refresh(): void {
 
 /** Puts the auctioneer on a lot, and opens it for bidding. */
 export async function openLot(itemId: string): Promise<void> {
-  await requireCapability("events");
+  await requireCapability("live");
 
   const item = await db.item.findUnique({ where: { id: itemId } });
   if (!item || !item.isLiveLot) throw new Error("That isn't a live lot.");
@@ -35,7 +35,7 @@ export async function openLot(itemId: string): Promise<void> {
 
 /** Steps away from the current lot without selling it. */
 export async function closeLotWithoutSelling(eventId: string): Promise<void> {
-  await requireCapability("events");
+  await requireCapability("live");
   await db.auctionEvent.update({ where: { id: eventId }, data: { currentLotId: null } });
   refresh();
 }
@@ -45,7 +45,7 @@ export async function placeRoomBid(
   _prev: LiveFormState,
   formData: FormData
 ): Promise<LiveFormState> {
-  await requireCapability("events");
+  await requireCapability("live");
 
   const itemId = String(formData.get("itemId") ?? "");
   const label = String(formData.get("bidderLabel") ?? "").trim();
@@ -92,7 +92,7 @@ export async function placeOnlineLiveBid(
 
 /** Sold. Awards the lot to whoever holds the top bid. */
 export async function sellLot(itemId: string): Promise<void> {
-  await requireCapability("events");
+  await requireCapability("live");
 
   const item = await db.item.findUnique({ where: { id: itemId }, include: { event: true } });
   if (!item) throw new Error("That lot no longer exists.");
@@ -145,7 +145,7 @@ export async function sellLot(itemId: string): Promise<void> {
 
 /** Passed in: no bid met the reserve, or nobody bid. */
 export async function passLot(itemId: string): Promise<void> {
-  await requireCapability("events");
+  await requireCapability("live");
   const item = await db.item.findUnique({ where: { id: itemId } });
   if (!item) return;
 
