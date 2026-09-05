@@ -1,0 +1,158 @@
+// Pre-Loved Auction — data model
+// One app, many auction events. Each event has its own items, its own
+// fundraising goal, and its own running total, so the chapter can run a
+// fresh auction whenever it likes and the total starts back at zero.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  BIDDER
+  ADMIN
+}
+
+enum EventStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+enum ItemStatus {
+  DRAFT
+  LIVE
+  ENDED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+}
+
+enum HandoverStatus {
+  PENDING
+  COLLECTED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  phone     String?
+  role      Role     @default(BIDDER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bids      Bid[]
+  watches   Watch[]
+  wonItems  Item[]  @relation("ItemWinner")
+
+  @@index([role])
+}
+
+/// A single-use, hashed magic-link token. Deleted once used or expired.
+model LoginToken {
+  id        String   @id @default(cuid())
+  email     String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+/// One fundraising auction. Create a new one for each drive; its goal and
+/// total are scoped to the event, so "raised so far" restarts at zero.
+model AuctionEvent {
+  id            String      @id @default(cuid())
+  name          String
+  slug          String      @unique
+  tagline       String?
+  description   String?
+  currency      String      @default("PHP")
+  goalCents     Int         @default(0)
+  status        EventStatus @default(DRAFT)
+  startsAt      DateTime?
+  endsAt        DateTime?
+  /// Shown to winners on their account page and in the "you won" email.
+  paymentInstructions String?
+  pickupInstructions  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  items Item[]
+
+  @@index([status])
+}
+
+model Item {
+  id                String     @id @default(cuid())
+  eventId           String
+  event             AuctionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  title             String
+  description       String?
+  category          String?
+  condition         String?
+  /// Who donated the item — shown on the listing to credit the member.
+  donorName         String?
+  imageUrls         String[]   @default([])
+
+  startingBidCents  Int        @default(0)
+  bidIncrementCents Int        @default(5000)
+  /// Optional hidden minimum. If the top bid is below it, the item does not sell.
+  reserveCents      Int?
+
+  endsAt            DateTime
+  status            ItemStatus @default(DRAFT)
+
+  winnerId          String?
+  winner            User?      @relation("ItemWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  winningBidCents   Int?
+  paymentStatus     PaymentStatus  @default(UNPAID)
+  handoverStatus    HandoverStatus @default(PENDING)
+  adminNotes        String?
+
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  bids    Bid[]
+  watches Watch[]
+
+  @@index([eventId, status])
+  @@index([status, endsAt])
+  @@index([winnerId])
+}
+
+model Bid {
+  id         String   @id @default(cuid())
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amountCents Int
+  createdAt  DateTime @default(now())
+
+  @@index([itemId, amountCents])
+  @@index([userId])
+}
+
+model Watch {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, itemId])
+  @@index([itemId])
+}
