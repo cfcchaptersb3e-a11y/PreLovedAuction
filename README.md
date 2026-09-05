@@ -1,5 +1,7 @@
 # CFC SB3E Pre-Loved Auction
 
+[![CI](https://github.com/cfcchaptersb3e-a11y/PreLovedAuction/actions/workflows/ci.yml/badge.svg)](https://github.com/cfcchaptersb3e-a11y/PreLovedAuction/actions/workflows/ci.yml)
+
 An online auction for our chapter's fundraising drives. Members donate pre-loved
 items, organisers list them, and members' family and friends bid from their
 phones. When an auction ends the app records the winners, emails them, and gives
@@ -67,6 +69,10 @@ Useful commands:
 
 > `npm run check` writes to whatever `DATABASE_URL` points at. Point it at a
 > scratch database, not the live one.
+
+Every push and pull request runs the build (which type-checks the whole project)
+and the auction-rule checks against a throwaway PostgreSQL service, via
+`.github/workflows/ci.yml`.
 
 ## Deploying to Vercel
 
