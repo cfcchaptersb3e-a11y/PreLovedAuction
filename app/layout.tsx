@@ -38,9 +38,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <header className="sticky top-0 z-40 border-b border-line bg-cream/90 backdrop-blur">
           <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3">
             <Link href="/" className="flex min-w-0 items-center gap-2.5">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-forest text-sm font-bold text-white">
-                SB
-              </span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/cfc-emblem.png"
+                alt=""
+                width={36}
+                height={36}
+                className="h-9 w-9 shrink-0 object-contain"
+              />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-bold leading-tight">
                   Pre-Loved Auction
@@ -85,6 +90,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <footer className="border-t border-line bg-parchment/60">
           <div className="mx-auto w-full max-w-6xl px-4 py-8 text-sm text-muted">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/cfc-logo.png"
+              alt="Couples for Christ"
+              width={160}
+              height={38}
+              className="mb-4 h-8 w-auto opacity-70"
+            />
             <p className="font-semibold text-ink">CFC SB3E Chapter Pre-Loved Auction</p>
             <p className="mt-1 max-w-prose">
               Every item here was provided by a chapter member, and every peso raised goes to our

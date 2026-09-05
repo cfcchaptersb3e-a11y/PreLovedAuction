@@ -215,7 +215,8 @@ function layout(heading: string, bodyHtml: string, cta?: { label: string; url: s
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;padding:28px;border:1px solid #e6e2da">
         <tr><td>
-          <p style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8a8578">CFC SB3E Pre-Loved Auction</p>
+          <img src="${appUrl("/cfc-logo.png")}" alt="Couples for Christ" width="190" height="45" style="display:block;border:0;outline:none;height:auto;margin:0 0 14px" />
+          <p style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8a8578">SB3E Chapter Pre-Loved Auction</p>
           <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3">${escapeHtml(heading)}</h1>
           ${bodyHtml}
           ${

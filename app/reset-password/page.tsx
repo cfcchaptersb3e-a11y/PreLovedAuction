@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { ResetPasswordForm } from "@/components/AuthForms";
+import { AuthMasthead } from "@/components/AuthMasthead";
 
 export const metadata: Metadata = { title: "Set a new password — CFC SB3E Auction" };
 
@@ -27,6 +28,7 @@ export default async function ResetPasswordPage({
 
   return (
     <div className="mx-auto max-w-md">
+      <AuthMasthead />
       <div className="card p-6 md:p-8">
         <h1 className="text-2xl font-bold">Set a new password</h1>
         <p className="mt-2 text-sm text-muted">

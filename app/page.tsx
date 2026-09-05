@@ -91,9 +91,20 @@ export default async function HomePage({
   return (
     <div className="space-y-8">
       <section className="overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-forest to-forest-dark p-6 text-white md:p-10">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-          {event.status === "OPEN" ? "Now accepting bids" : "This auction has closed"}
-        </p>
+        <div className="mb-4 flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/cfc-emblem-white.png"
+            alt="Couples for Christ"
+            width={52}
+            height={52}
+            className="h-13 w-13 object-contain"
+            style={{ height: "3.25rem", width: "3.25rem" }}
+          />
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
+            {event.status === "OPEN" ? "Now accepting bids" : "This auction has closed"}
+          </p>
+        </div>
         <h1 className="mt-2 max-w-2xl text-3xl font-bold leading-tight md:text-4xl">{event.name}</h1>
         {event.tagline && <p className="mt-3 max-w-2xl text-white/85">{event.tagline}</p>}
         {event.description && (
