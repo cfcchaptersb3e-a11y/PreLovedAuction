@@ -13,7 +13,8 @@
     "seed": "tsx prisma/seed.ts",
     "check": "tsx --conditions react-server scripts/check-rules.ts",
     "check:auth": "tsx --conditions react-server scripts/check-auth.ts",
-    "check:roles": "tsx --conditions react-server scripts/check-roles.ts"
+    "check:roles": "tsx --conditions react-server scripts/check-roles.ts",
+    "check:live": "tsx --conditions react-server scripts/check-live.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",

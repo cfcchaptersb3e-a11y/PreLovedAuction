@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { sendOutbidEmail, sendWinnerEmail } from "@/lib/email";
 import { formatMoney } from "@/lib/money";
-import type { AuctionEvent, Item, Prisma } from "@prisma/client";
+import type { AuctionEvent, BidChannel, Item, Prisma } from "@prisma/client";
 
 /**
  * A bid placed inside this window pushes the closing time out, so an item can
@@ -35,10 +35,21 @@ export function minimumBidCents(
  */
 export async function placeBid(params: {
   itemId: string;
-  userId: string;
+  /** Absent for a room bid called by someone without an account. */
+  userId?: string | null;
+  /** How the operator identified a room bidder with no account. */
+  bidderLabel?: string | null;
+  channel?: BidChannel;
   amountCents: number;
 }): Promise<BidResult> {
-  const { itemId, userId, amountCents } = params;
+  const { itemId, amountCents } = params;
+  const userId = params.userId ?? null;
+  const bidderLabel = params.bidderLabel?.trim() || null;
+  const channel: BidChannel = params.channel ?? "ONLINE";
+
+  if (!userId && !bidderLabel) {
+    throw new BidError("A bid needs a bidder.");
+  }
 
   if (!Number.isInteger(amountCents) || amountCents <= 0) {
     throw new BidError("Enter a valid bid amount.");
@@ -60,7 +71,12 @@ export async function placeBid(params: {
           if (item.event.status !== "OPEN") throw new BidError("This auction is not running.");
 
           const now = new Date();
-          if (item.endsAt <= now) throw new BidError("Bidding on this item has closed.");
+          // A live lot ignores its clock: the auctioneer decides when it ends.
+          if (!item.isLiveLot && item.endsAt <= now) {
+            throw new BidError("Bidding on this item has closed.");
+          }
+          // Online bids on a live lot are welcome before the event too: they are
+          // advance bids, and they set the price the auctioneer opens at.
 
           const topBid = await tx.bid.findFirst({
             where: { itemId },
@@ -68,8 +84,11 @@ export async function placeBid(params: {
             include: { user: true },
           });
 
-          if (topBid && topBid.userId === userId) {
+          if (topBid && userId && topBid.userId === userId) {
             throw new BidError("You are already the highest bidder on this item.");
+          }
+          if (topBid && !userId && bidderLabel && topBid.bidderLabel === bidderLabel) {
+            throw new BidError(`${bidderLabel} already holds the highest bid.`);
           }
 
           const minimum = minimumBidCents(item, topBid?.amountCents ?? null);
@@ -79,11 +98,12 @@ export async function placeBid(params: {
             );
           }
 
-          await tx.bid.create({ data: { itemId, userId, amountCents } });
+          await tx.bid.create({ data: { itemId, userId, bidderLabel, channel, amountCents } });
 
           let newEndsAt = item.endsAt;
           let extended = false;
-          if (item.endsAt.getTime() - now.getTime() < ANTI_SNIPE_WINDOW_MS) {
+          // Anti-sniping is meaningless for a live lot; the auctioneer closes it.
+          if (!item.isLiveLot && item.endsAt.getTime() - now.getTime() < ANTI_SNIPE_WINDOW_MS) {
             newEndsAt = new Date(now.getTime() + ANTI_SNIPE_EXTENSION_MS);
             extended = true;
             await tx.item.update({ where: { id: itemId }, data: { endsAt: newEndsAt } });
@@ -92,7 +112,7 @@ export async function placeBid(params: {
           return {
             bid: { amountCents, newEndsAt, extended },
             previousTopBidder:
-              topBid && topBid.user.email
+              topBid?.user?.email
                 ? { email: topBid.user.email, itemTitle: item.title, currency: item.event.currency }
                 : null,
           };
@@ -149,7 +169,8 @@ function isRetryableWriteConflict(error: unknown): boolean {
  */
 export async function finalizeDueItems(): Promise<number> {
   const due = await db.item.findMany({
-    where: { status: "LIVE", endsAt: { lte: new Date() } },
+    // Live lots are excluded: only the auctioneer closes those.
+    where: { status: "LIVE", isLiveLot: false, endsAt: { lte: new Date() } },
     include: { event: true },
     take: 200,
   });
@@ -201,12 +222,16 @@ async function closeItem(
     data: {
       status: "ENDED",
       winnerId: sold ? topBid!.userId : null,
+      winnerLabel: sold ? topBid!.bidderLabel : null,
       winningBidCents: sold ? topBid!.amountCents : null,
     },
   });
 
   if (updated.count === 0 || !sold) return null;
   void event;
+  // A room winner without an account cannot be emailed; the winners report
+  // carries their label instead.
+  if (!topBid!.user) return null;
   return { email: topBid!.user.email, amountCents: topBid!.amountCents };
 }
 

@@ -25,8 +25,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     ? await db.watch.count({ where: { userId: user.id, item: { status: "LIVE" } } })
     : 0;
 
+  // Only shown while the auctioneer actually has a lot on the block.
+  const liveEvent = await db.auctionEvent.findFirst({
+    where: { status: "OPEN", currentLotId: { not: null } },
+    select: { id: true },
+  });
+
   const links = [
     { href: "/", label: "Auction" },
+    ...(liveEvent ? [{ href: "/live", label: "🔴 Live now" }] : []),
     { href: "/watchlist", label: watchCount > 0 ? `Watchlist (${watchCount})` : "Watchlist" },
     { href: "/events", label: "Past auctions" },
     ...(user ? [{ href: "/account", label: "My bids" }] : []),

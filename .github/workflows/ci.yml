@@ -63,3 +63,6 @@ jobs:
 
       - name: Check the role permissions
         run: npm run check:roles
+
+      - name: Check the live auction
+        run: npm run check:live

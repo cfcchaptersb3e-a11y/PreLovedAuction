@@ -179,6 +179,8 @@ type ItemFields = {
   bidIncrementCents: number;
   reserveCents: number | null;
   endsAt: Date;
+  isLiveLot: boolean;
+  lotNumber: number | null;
 };
 
 function itemDataFromForm(
@@ -216,6 +218,8 @@ function itemDataFromForm(
       bidIncrementCents,
       reserveCents,
       endsAt,
+      isLiveLot: formData.get("isLiveLot") === "on",
+      lotNumber: Number(text(formData, "lotNumber")) || null,
     },
   };
 }

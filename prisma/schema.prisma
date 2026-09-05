@@ -52,6 +52,14 @@ enum HandoverStatus {
   COLLECTED
 }
 
+/// Where a bid came from, so the record shows how a lot was won.
+enum BidChannel {
+  /// Placed by a signed-in bidder from their own device.
+  ONLINE
+  /// Called in the room and entered by the operator running the live auction.
+  ROOM
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -108,6 +116,11 @@ model AuctionEvent {
   /// Shown to winners on their account page and in the "you won" email.
   paymentInstructions String?
   pickupInstructions  String?
+
+  /// Shown on the lots that are being saved for the live finale.
+  liveNote     String?
+  /// The lot the auctioneer is on right now. Null when no lot is running.
+  currentLotId String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -137,8 +150,17 @@ model Item {
   endsAt            DateTime
   status            ItemStatus @default(DRAFT)
 
+  /// Held back for the live finale instead of closing at endsAt. Online bids
+  /// still run beforehand and set the opening price.
+  isLiveLot         Boolean    @default(false)
+  /// The order the auctioneer works through the live lots.
+  lotNumber         Int?
+
   winnerId          String?
   winner            User?      @relation("ItemWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+  /// Set instead of winnerId when a lot is won in the room by someone without
+  /// an account — "Paddle 12", or a name the operator typed.
+  winnerLabel       String?
   winningBidCents   Int?
   paymentStatus     PaymentStatus  @default(UNPAID)
   handoverStatus    HandoverStatus @default(PENDING)
@@ -159,8 +181,14 @@ model Bid {
   id         String   @id @default(cuid())
   itemId     String
   item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Null for a room bid from someone without an account.
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// How the operator identified a room bidder who has no account.
+  bidderLabel String?
+
+  channel    BidChannel @default(ONLINE)
   amountCents Int
   createdAt  DateTime @default(now())
 

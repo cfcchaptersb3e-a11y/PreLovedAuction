@@ -136,14 +136,27 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
               </p>
               <p className="mt-1 text-sm text-muted">
                 {bidCount} {bidCount === 1 ? "bid" : "bids"}
-                {live && (
+                {live && item.isLiveLot && (
+                  <>
+                    {" · "}
+                    <span className="font-semibold text-clay">sold live at the event</span>
+                  </>
+                )}
+                {live && !item.isLiveLot && (
                   <>
                     {" · "}
                     <Countdown endsAt={item.endsAt.toISOString()} initialLabel={timeLeft(item.endsAt)} />
                   </>
                 )}
               </p>
-              {live && (
+              {live && item.isLiveLot && (
+                <p className="mt-2 text-xs text-muted">
+                  This lot is saved for the live auction at the gathering. Bid now to set the
+                  opening price — the auctioneer sells it in the room, and you can keep bidding
+                  from home while that happens.
+                </p>
+              )}
+              {live && !item.isLiveLot && (
                 <p className="mt-2 text-xs text-muted">
                   Closes{" "}
                   <LocalTime
@@ -212,8 +225,15 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
                       {index === 0 && (
                         <span className="chip bg-forest-light text-forest">Top</span>
                       )}
+                      {bid.channel === "ROOM" && (
+                        <span className="chip bg-parchment text-muted">In the room</span>
+                      )}
                       <span className="truncate">
-                        {bid.user.id === user?.id ? "You" : displayName(bid.user)}
+                        {bid.user
+                          ? bid.user.id === user?.id
+                            ? "You"
+                            : displayName(bid.user)
+                          : (bid.bidderLabel ?? "In the room")}
                       </span>
                     </span>
                     <span className="shrink-0 text-right">

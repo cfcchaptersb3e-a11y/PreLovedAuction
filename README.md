@@ -86,6 +86,7 @@ Useful commands:
 | `npm run check` | Run the auction-rules checks against the database |
 | `npm run check:auth` | Run the password and sign-in checks |
 | `npm run check:roles` | Run the role permission checks |
+| `npm run check:live` | Run the live auction checks |
 
 > Both `check` scripts write to whatever `DATABASE_URL` points at. Point it at a
 > scratch database, not the live one.
@@ -119,6 +120,30 @@ and the auction-rule checks against a throwaway PostgreSQL service, via
 
 6. Visit `/login`, sign in with an email from `ADMIN_EMAILS`, and you'll land in
    the organizer tools.
+
+### The live finale
+
+A few lots can be held back from the online close and sold by an auctioneer at
+a gathering, with the room and people at home bidding into the same lot.
+
+- Mark an item as a **live lot** when adding or editing it, and give it a lot
+  number. Online bidding still runs beforehand and sets the opening price; the
+  lot does not close on its own.
+- **Organizer tools → Live auction** is the operator's console. Start a lot,
+  record bids called in the room by paddle number or name, and mark it sold.
+- **`/live`** is what everyone else sees: the lot on the block, the current bid,
+  and a one-tap bid button. A "Live now" link appears in the menu while a lot
+  is running.
+- Room bids and online bids compete in one bid stream, settled by the same
+  serializable transaction as any other bid, so the room and the floor cannot
+  both win the same price.
+
+There is no realtime service behind this — both screens poll every 2.5 seconds.
+That is well within the free tier (eighty people for half an hour is about
+72,000 requests against a million a month), and it fails gracefully: a dropped
+update arrives on the next tick instead of leaving a page stuck. **If the hall's
+connection fails entirely, keep calling lots on paper and enter them afterwards
+— nothing about the auction depends on the app being reachable.**
 
 ### How items close
 
