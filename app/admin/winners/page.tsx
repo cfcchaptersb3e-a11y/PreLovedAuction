@@ -100,59 +100,113 @@ export default async function WinnersPage({
           <p>Nothing to show for this auction and filter.</p>
         </div>
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="w-full min-w-[46rem] text-sm">
-            <thead className="border-b border-line bg-parchment/60 text-left">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Item</th>
-                <th className="px-4 py-3 font-semibold">Winner</th>
-                <th className="px-4 py-3 font-semibold">Contact</th>
-                <th className="px-4 py-3 text-right font-semibold">Amount</th>
-                <th className="px-4 py-3 font-semibold">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {wins.map((item) => (
-                <tr key={item.id} className="align-top">
-                  <td className="px-4 py-3">
+        <>
+          {/* A treasurer works this list from a phone, so the same rows are
+              stacked there rather than hidden off the side of a table. */}
+          <div className="space-y-3 sm:hidden">
+            {wins.map((item) => (
+              <div key={item.id} className="card space-y-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
                     <Link href={`/items/${item.id}`} className="font-medium hover:underline">
                       {item.title}
                     </Link>
                     {item.donorName && (
                       <p className="text-xs text-muted">from {item.donorName}</p>
                     )}
-                  </td>
-                  <td className="px-4 py-3">{item.winner?.name || "—"}</td>
-                  <td className="px-4 py-3">
-                    <a href={`mailto:${item.winner?.email}`} className="hover:underline">
-                      {item.winner?.email}
-                    </a>
-                    {item.winner?.phone && (
-                      <p className="text-xs text-muted">{item.winner.phone}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-forest">
+                  </div>
+                  <p className="shrink-0 font-semibold text-forest">
                     {formatMoney(item.winningBidCents ?? 0, event.currency)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1.5">
-                      <StatusToggle
-                        itemId={item.id}
-                        kind="payment"
-                        done={item.paymentStatus === "PAID"}
-                      />
-                      <StatusToggle
-                        itemId={item.id}
-                        kind="handover"
-                        done={item.handoverStatus === "COLLECTED"}
-                      />
-                    </div>
-                  </td>
+                  </p>
+                </div>
+
+                <div className="border-t border-line pt-3 text-sm">
+                  <p className="font-medium">{item.winner?.name || "\u2014"}</p>
+                  <a
+                    href={`mailto:${item.winner?.email}`}
+                    className="break-all text-muted hover:underline"
+                  >
+                    {item.winner?.email}
+                  </a>
+                  {item.winner?.phone && (
+                    <p>
+                      <a href={`tel:${item.winner.phone}`} className="text-muted hover:underline">
+                        {item.winner.phone}
+                      </a>
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  <StatusToggle
+                    itemId={item.id}
+                    kind="payment"
+                    done={item.paymentStatus === "PAID"}
+                  />
+                  <StatusToggle
+                    itemId={item.id}
+                    kind="handover"
+                    done={item.handoverStatus === "COLLECTED"}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="card hidden overflow-x-auto sm:block">
+            <table className="w-full min-w-[46rem] text-sm">
+              <thead className="border-b border-line bg-parchment/60 text-left">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Item</th>
+                  <th className="px-4 py-3 font-semibold">Winner</th>
+                  <th className="px-4 py-3 font-semibold">Contact</th>
+                  <th className="px-4 py-3 text-right font-semibold">Amount</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {wins.map((item) => (
+                  <tr key={item.id} className="align-top">
+                    <td className="px-4 py-3">
+                      <Link href={`/items/${item.id}`} className="font-medium hover:underline">
+                        {item.title}
+                      </Link>
+                      {item.donorName && (
+                        <p className="text-xs text-muted">from {item.donorName}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">{item.winner?.name || "\u2014"}</td>
+                    <td className="px-4 py-3">
+                      <a href={`mailto:${item.winner?.email}`} className="hover:underline">
+                        {item.winner?.email}
+                      </a>
+                      {item.winner?.phone && (
+                        <p className="text-xs text-muted">{item.winner.phone}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-forest">
+                      {formatMoney(item.winningBidCents ?? 0, event.currency)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        <StatusToggle
+                          itemId={item.id}
+                          kind="payment"
+                          done={item.paymentStatus === "PAID"}
+                        />
+                        <StatusToggle
+                          itemId={item.id}
+                          kind="handover"
+                          done={item.handoverStatus === "COLLECTED"}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );
