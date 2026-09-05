@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #faf8f4;
+  --color-parchment: #f2eee5;
+  --color-ink: #23261f;
+  --color-muted: #6f6a5f;
+  --color-line: #e4dfd3;
+  --color-forest: #2f6f4f;
+  --color-forest-dark: #24583e;
+  --color-forest-light: #e8f1ec;
+  --color-clay: #c2643c;
+  --color-clay-light: #fbeee7;
+  --color-gold: #b8892b;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Buttons and inputs are used on nearly every screen, so they live here rather
+   than being repeated as long class strings in each component. */
+@layer components {
+  /* Tailwind v4 can't @apply a class defined in this layer, so the shared
+     button base is written once as a selector list. */
+  .btn,
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-forest text-white hover:bg-forest-dark;
+  }
+  .btn-secondary {
+    @apply border border-line bg-white text-ink hover:bg-parchment;
+  }
+  .btn-danger {
+    @apply border border-clay/40 bg-clay-light text-clay hover:bg-clay hover:text-white;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .field {
+    @apply w-full rounded-lg border border-line bg-white px-3 py-2.5 text-sm text-ink
+           outline-none placeholder:text-muted/60 focus:border-forest focus:ring-2 focus:ring-forest/20;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+  .hint {
+    @apply mt-1 text-xs text-muted;
+  }
+  .card {
+    @apply rounded-2xl border border-line bg-white;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+}
