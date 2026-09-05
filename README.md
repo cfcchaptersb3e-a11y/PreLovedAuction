@@ -142,6 +142,18 @@ Email is optional. Without `RESEND_API_KEY` the app works fine and writes each
 message to the server log — but then bidders can't receive sign-in links, so in
 practice you want it for a real auction.
 
+**You need a verified sending domain.** A new Resend account can only deliver to
+the address it was registered with, so with the default `onboarding@resend.dev`
+sender your bidders receive nothing. Add your domain under Domains in Resend,
+add the DNS records it gives you, and set `EMAIL_FROM` to an address at that
+domain. The organiser tools show a warning until this is done.
+
+A send that fails is never silent: a bidder who can't be sent a sign-in link is
+told so rather than being shown "check your inbox", and failed outbid or winner
+emails are logged with a line naming the person to contact. Bidding and closing
+never fail because of email — the bid is recorded and the item is settled
+regardless.
+
 Sign up at [resend.com](https://resend.com) (the free tier covers an auction this
 size), create an API key, and add it as `RESEND_API_KEY`. To send from your own
 domain rather than Resend's test address, verify the domain with them and set

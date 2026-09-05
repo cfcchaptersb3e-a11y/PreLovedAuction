@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { createLoginToken, endSession, normaliseEmail, requireUser } from "@/lib/auth";
-import { sendLoginLink } from "@/lib/email";
+import { EmailError, sendLoginLink } from "@/lib/email";
 
 export type FormState = { error?: string; message?: string };
 
@@ -24,6 +24,14 @@ export async function requestLoginLink(
     await sendLoginLink(email, token);
   } catch (error) {
     console.error("Login link failed:", error);
+    if (error instanceof EmailError) {
+      // Say the link did not arrive, rather than showing "check your inbox"
+      // for a message that is never coming.
+      return {
+        error:
+          "We couldn't send your sign-in link — the auction's email isn't working right now. Please tell a chapter organiser so they can fix it.",
+      };
+    }
     return { error: "We couldn't send the link just now. Please try again in a moment." };
   }
 
