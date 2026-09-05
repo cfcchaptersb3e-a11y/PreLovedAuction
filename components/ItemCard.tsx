@@ -12,6 +12,7 @@ export type ItemCardData = {
   startingBidCents: number;
   endsAt: Date;
   status: string;
+  isLiveLot: boolean;
   winningBidCents: number | null;
   topBidCents: number;
   bidCount: number;
@@ -43,6 +44,9 @@ export function ItemCard({ item, currency }: { item: ItemCardData; currency: str
           <div className="grid h-full place-items-center text-3xl text-muted/40" aria-hidden>
             🎁
           </div>
+        )}
+        {!ended && item.isLiveLot && (
+          <span className="absolute left-2 top-2 chip bg-clay text-white">Live finale</span>
         )}
         {ended && (
           <span className="absolute left-2 top-2 chip bg-ink/85 text-white">
@@ -80,6 +84,8 @@ export function ItemCard({ item, currency }: { item: ItemCardData; currency: str
                 <span className="text-muted">
                   {item.bidCount} {item.bidCount === 1 ? "bid" : "bids"}
                 </span>
+              ) : item.isLiveLot ? (
+                <span className="font-semibold text-clay">Live lot</span>
               ) : (
                 <Countdown endsAt={item.endsAt.toISOString()} initialLabel={timeLeft(item.endsAt)} />
               )}

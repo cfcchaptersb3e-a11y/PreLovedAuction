@@ -18,6 +18,8 @@ type ItemValues = {
   bidIncrementCents: number;
   reserveCents: number | null;
   endsAt: Date;
+  isLiveLot: boolean;
+  lotNumber: number | null;
 };
 
 const CONDITIONS = ["Like new", "Excellent", "Very good", "Good", "Well loved"];
@@ -193,6 +195,38 @@ export function ItemForm({
           label="Closes"
           iso={(item?.endsAt ?? defaultEndsAt)?.toISOString() ?? null}
         />
+      </div>
+
+      <div className="rounded-xl border border-line bg-parchment/50 p-4">
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            name="isLiveLot"
+            defaultChecked={item?.isLiveLot ?? false}
+            className="mt-0.5 h-4 w-4 shrink-0"
+          />
+          <span>
+            <span className="font-medium">Save this for the live auction</span>
+            <span className="hint mt-0.5 block">
+              Online bidding still runs and sets the opening price, but the lot doesn&rsquo;t close
+              on its own — the auctioneer sells it at the event.
+            </span>
+          </span>
+        </label>
+        <div className="mt-3 max-w-[10rem]">
+          <label className="label" htmlFor="lotNumber">
+            Lot number
+          </label>
+          <input
+            id="lotNumber"
+            name="lotNumber"
+            inputMode="numeric"
+            defaultValue={item?.lotNumber ?? ""}
+            placeholder="1"
+            className="field"
+          />
+          <p className="hint">The order the auctioneer calls them.</p>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

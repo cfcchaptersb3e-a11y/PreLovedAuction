@@ -21,6 +21,8 @@ export type ManagedItem = {
   reserveCents: number | null;
   endsAt: Date;
   status: string;
+  isLiveLot: boolean;
+  lotNumber: number | null;
   winningBidCents: number | null;
   bidCount: number;
   topBidCents: number;
@@ -111,6 +113,11 @@ export function ItemManager({
                     <Link href={`/items/${item.id}`} className="font-semibold hover:underline">
                       {item.title}
                     </Link>
+                    {item.isLiveLot && (
+                      <span className="chip bg-clay-light text-clay">
+                        Live lot{item.lotNumber ? ` ${item.lotNumber}` : ""}
+                      </span>
+                    )}
                     <span
                       className={`chip ${
                         item.status === "LIVE"

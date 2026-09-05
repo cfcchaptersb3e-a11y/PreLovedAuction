@@ -6,6 +6,7 @@ import { emailStatus } from "@/lib/email";
 
 const TABS = [
   { href: "/admin", label: "Auctions", capability: "items" as const },
+  { href: "/admin/live", label: "Live auction", capability: "events" as const },
   { href: "/admin/winners", label: "Winners & payments", capability: "payments" as const },
   { href: "/admin/people", label: "People", capability: "people" as const },
 ];
