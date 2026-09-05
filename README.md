@@ -100,9 +100,28 @@ and the auction-rule checks against a throwaway PostgreSQL service, via
 6. Visit `/login`, sign in with an email from `ADMIN_EMAILS`, and you'll land in
    the organiser tools.
 
-`vercel.json` also registers a cron job that closes finished items every five
-minutes. Pages close overdue items when they're viewed too, so results stay
-correct even if a cron run is missed.
+### How items close
+
+An item closes and its winner is emailed through three mechanisms, so nothing
+depends on a single one working:
+
+1. **The countdown.** When an item's clock reaches zero, any open page refreshes
+   itself, which settles the item there and then. In practice this is what closes
+   most items — people are watching as an auction ends.
+2. **Any page view.** Every page settles overdue items when it loads, so the
+   first person to open the site catches anything missed.
+3. **A daily cron job**, registered in `vercel.json`, as a backstop.
+
+The cron runs only once a day because Vercel's free Hobby plan allows no more
+than that (and only guarantees the hour it runs in). That is fine here: the cron
+is the last line of defence, not the primary one.
+
+The practical consequence is that if an item ends when nobody is on the site,
+its winner's email can be delayed until someone next opens a page. Bidding is
+still correctly closed the instant the clock runs out — a late bid is rejected
+whatever the item's recorded status — so no one can win an item after time.
+Upgrading to Vercel Pro would allow a per-minute cron if you ever want the
+notification to be immediate regardless.
 
 ### About the automatic schema step
 
