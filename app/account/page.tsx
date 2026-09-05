@@ -152,7 +152,7 @@ export default async function AccountPage() {
       <section className="card p-5">
         <h2 className="text-lg font-bold">Your details</h2>
         <p className="mb-4 mt-1 text-sm text-muted">
-          Adding your name and number helps organisers arrange payment and pickup if you win.
+          Adding your name and number helps organizers arrange payment and pickup if you win.
         </p>
         <ProfileForm name={user.name} phone={user.phone} />
       </section>

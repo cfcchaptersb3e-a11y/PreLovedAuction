@@ -73,6 +73,7 @@ export default async function ManageEventPage({
         currency={event.currency}
         defaultEndsAt={event.endsAt}
         categories={categoryRows.map((row) => row.category!).filter(Boolean)}
+        canWithdraw={manageEvents}
       />
 
       {manageEvents && (

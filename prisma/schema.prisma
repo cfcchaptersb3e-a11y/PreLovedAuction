@@ -17,6 +17,10 @@ enum Role {
   BIDDER
   /// Collects donations: adds and edits items, uploads photos. Cannot open or
   /// close an auction, and cannot see winners' contact details or payments.
+  ///
+  /// Shown as "Cataloger". The stored value keeps its original spelling
+  /// deliberately: renaming an enum value is a destructive change that the
+  /// deploy's schema step refuses, and nobody ever sees this identifier.
   CATALOGUER
   /// Handles the money afterwards: the winners report, marking paid and
   /// collected, the CSV export. Cannot change items or auctions.

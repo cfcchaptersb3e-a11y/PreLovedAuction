@@ -8,7 +8,7 @@ export function ItemGrid({ items, currency }: { items: ItemCardData[]; currency:
           📦
         </p>
         <p className="mt-2 font-medium text-ink">Nothing here yet</p>
-        <p className="mt-1 text-sm">Check back soon — organisers are still adding items.</p>
+        <p className="mt-1 text-sm">Check back soon — organizers are still adding items.</p>
       </div>
     );
   }

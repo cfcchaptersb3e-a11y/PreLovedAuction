@@ -37,7 +37,7 @@ export function ProfileForm({
             Contact number
           </label>
           <input id="phone" name="phone" defaultValue={phone ?? ""} className="field" />
-          <p className="hint">So organisers can reach you about payment and pickup.</p>
+          <p className="hint">So organizers can reach you about payment and pickup.</p>
         </div>
       </div>
       <div className="flex items-center gap-3">

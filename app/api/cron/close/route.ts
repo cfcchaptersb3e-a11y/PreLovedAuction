@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   if (expected) {
     const provided = request.headers.get("authorization");
     if (provided !== `Bearer ${expected}`) {
-      return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }
 

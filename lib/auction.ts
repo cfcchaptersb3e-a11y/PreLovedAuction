@@ -160,7 +160,7 @@ export async function finalizeDueItems(): Promise<number> {
     const winner = await closeItem(item, item.event);
     if (winner) {
       // The item is settled either way; the winner is also shown on their
-      // account page and in the organisers' winners report.
+      // account page and in the organizers' winners report.
       try {
         await sendWinnerEmail({
           to: winner.email,

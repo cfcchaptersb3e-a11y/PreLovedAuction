@@ -41,7 +41,7 @@ export default async function AdminHome() {
           <p className="mt-1 text-sm text-muted">
             {manageEvents
               ? "Create your first auction, add the provided items, then open it for bidding."
-              : "A chapter organiser needs to create an auction before items can be added."}
+              : "A chapter organizer needs to create an auction before items can be added."}
           </p>
           {manageEvents && (
             <Link href="/admin/events/new" className="btn-primary mt-5">

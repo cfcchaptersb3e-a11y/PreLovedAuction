@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     await requireCapability("items");
   } catch {
     return NextResponse.json(
-      { error: "You need cataloguer access to upload photos." },
+      { error: "You need cataloger access to upload photos." },
       { status: 403 }
     );
   }

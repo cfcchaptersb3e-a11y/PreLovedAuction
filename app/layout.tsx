@@ -31,7 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     { href: "/events", label: "Past auctions" },
     ...(user ? [{ href: "/account", label: "My bids" }] : []),
     ...(user && isStaff(user.role)
-      ? [{ href: staffLandingPath(user.role), label: "Organiser tools" }]
+      ? [{ href: staffLandingPath(user.role), label: "Organizer tools" }]
       : []),
   ];
 
@@ -111,7 +111,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </p>
             <p className="mt-4 text-xs">
               Questions about an item, payment or pickup? Reply to your confirmation email and an
-              organiser will help.
+              organizer will help.
             </p>
           </div>
         </footer>

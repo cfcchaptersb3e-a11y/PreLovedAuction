@@ -42,7 +42,7 @@ async function main() {
     Boolean(user?.passwordHash) && !user!.passwordHash!.includes("auction2026"));
   check("duplicate email refused",
     (await createAccount({ email, password: "another", name: "Imposter" })) === null);
-  check("email is normalised",
+  check("email is normalized",
     (await createAccount({ email: email.toUpperCase(), password: "x2", name: "Y" })) === null);
 
   // --- sign in ---

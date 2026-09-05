@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
  *
  * A bare `datetime-local` input posts a naive string like "2026-09-08T18:00",
  * which the server would read in *its* timezone — on Vercel that is UTC, so an
- * organiser in Manila setting 6pm would close the item at 2am. This converts
+ * organizer in Manila setting 6pm would close the item at 2am. This converts
  * the value in the browser, where the intended timezone actually lives.
  */
 export function DateTimeField({

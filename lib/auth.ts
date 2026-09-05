@@ -54,16 +54,16 @@ function readSessionValue(value: string | undefined): string | null {
   return userId;
 }
 
-export function normaliseEmail(email: string): string {
+export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
 export function isConfiguredAdmin(email: string): boolean {
   const list = (process.env.ADMIN_EMAILS ?? "")
     .split(",")
-    .map((entry) => normaliseEmail(entry))
+    .map((entry) => normalizeEmail(entry))
     .filter(Boolean);
-  return list.includes(normaliseEmail(email));
+  return list.includes(normalizeEmail(email));
 }
 
 // ------------------------------------------------------------------ passwords
@@ -122,7 +122,7 @@ export async function signInWithPassword(
   email: string,
   password: string
 ): Promise<SignInResult> {
-  const address = normaliseEmail(email);
+  const address = normalizeEmail(email);
   const user = await db.user.findUnique({ where: { email: address } });
 
   if (!user) {
@@ -171,7 +171,7 @@ export async function createAccount(params: {
   name?: string | null;
   phone?: string | null;
 }): Promise<User | null> {
-  const address = normaliseEmail(params.email);
+  const address = normalizeEmail(params.email);
   if (await db.user.findUnique({ where: { email: address } })) return null;
 
   return db.user.create({
@@ -194,7 +194,7 @@ const RESET_TOKEN_MINUTES = 60;
  * of the database does not hand anyone a working reset link.
  */
 export async function createPasswordResetToken(email: string): Promise<string> {
-  const address = normaliseEmail(email);
+  const address = normalizeEmail(email);
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token).digest("hex");
 
@@ -230,7 +230,7 @@ export async function consumePasswordResetToken(
       passwordHash: await hashPassword(newPassword),
       failedLogins: 0,
       lockedUntil: null,
-      // Promote an organiser added to ADMIN_EMAILS after they signed up.
+      // Promote an organizer added to ADMIN_EMAILS after they signed up.
       ...(isConfiguredAdmin(user.email) && user.role !== "ADMIN"
         ? { role: "ADMIN" as const }
         : {}),
@@ -240,7 +240,7 @@ export async function consumePasswordResetToken(
 
 /** True if the address has an account, used only to decide whether to email. */
 export async function accountExists(email: string): Promise<boolean> {
-  return Boolean(await db.user.findUnique({ where: { email: normaliseEmail(email) } }));
+  return Boolean(await db.user.findUnique({ where: { email: normalizeEmail(email) } }));
 }
 
 export async function startSession(userId: string): Promise<void> {
@@ -275,7 +275,7 @@ export async function requireUser(): Promise<User> {
 }
 
 /**
- * The guard behind every organiser action. Refuses with wording that names the
+ * The guard behind every organizer action. Refuses with wording that names the
  * capability, so someone who has been given the wrong role can say what they
  * were trying to do.
  */
@@ -288,10 +288,10 @@ export async function requireCapability(capability: Capability): Promise<User> {
 }
 
 const REFUSALS: Record<Capability, string> = {
-  events: "Only chapter organisers can change an auction.",
-  items: "You need cataloguer access to change items. Ask a chapter organiser.",
+  events: "Only chapter organizers can change an auction.",
+  items: "You need cataloger access to change items. Ask a chapter organizer.",
   payments: "You need treasurer access to see winners and payments.",
-  people: "Only chapter organisers can change what someone is allowed to do.",
+  people: "Only chapter organizers can change what someone is allowed to do.",
 };
 
 export async function hasCapability(capability: Capability): Promise<boolean> {
