@@ -215,7 +215,8 @@ function layout(heading: string, bodyHtml: string, cta?: { label: string; url: s
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;padding:28px;border:1px solid #e6e2da">
         <tr><td>
-          <p style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8a8578">CFC SB3E Pre-Loved Auction</p>
+          <img src="${appUrl("/cfc-logo.png")}" alt="Couples for Christ" width="190" height="45" style="display:block;border:0;outline:none;height:auto;margin:0 0 14px" />
+          <p style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8a8578">SB3E Chapter Pre-Loved Auction</p>
           <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3">${escapeHtml(heading)}</h1>
           ${bodyHtml}
           ${
@@ -233,18 +234,33 @@ function layout(heading: string, bodyHtml: string, cta?: { label: string; url: s
 </body></html>`;
 }
 
-export async function sendLoginLink(email: string, token: string): Promise<void> {
-  const url = appUrl(`/api/auth/verify?token=${encodeURIComponent(token)}`);
+export async function sendPasswordResetLink(email: string, token: string): Promise<void> {
+  const url = appUrl(`/reset-password?token=${encodeURIComponent(token)}`);
   await send({
     to: email,
-    subject: "Your sign-in link for the CFC SB3E auction",
+    subject: "Reset your CFC SB3E auction password",
     html: layout(
-      "Sign in to bid",
-      `<p style="margin:0;font-size:15px;line-height:1.6">Tap the button below to sign in. The link works once and expires in 20 minutes.</p>
-       <p style="margin:16px 0 0;font-size:13px;color:#6f6a5f;word-break:break-all">${url}</p>`,
-      { label: "Sign in", url }
+      "Set a new password",
+      `<p style="margin:0;font-size:15px;line-height:1.6">Tap the button below to choose a new password. The link works once and expires in an hour.</p>
+       <p style="margin:16px 0 0;font-size:13px;color:#6f6a5f;word-break:break-all">${url}</p>
+       <p style="margin:16px 0 0;font-size:14px;line-height:1.6;color:#6f6a5f">If you didn't ask for this, you can ignore this email — your password stays as it is.</p>`,
+      { label: "Choose a new password", url }
     ),
-    text: `Sign in to the CFC SB3E Pre-Loved Auction:\n\n${url}\n\nThe link works once and expires in 20 minutes. If you did not request it, you can ignore this email.`,
+    text: `Set a new password for the CFC SB3E Pre-Loved Auction:\n\n${url}\n\nThe link works once and expires in an hour. If you didn't ask for this, you can ignore this email.`,
+  });
+}
+
+export async function sendWelcomeEmail(params: { to: string; name?: string | null }): Promise<void> {
+  await send({
+    to: params.to,
+    subject: "Welcome to the CFC SB3E Pre-Loved Auction",
+    html: layout(
+      params.name ? `Welcome, ${escapeHtml(params.name.split(/\s+/)[0])}!` : "Welcome!",
+      `<p style="margin:0;font-size:15px;line-height:1.6">Your account is ready. Sign in any time with your email address and password to browse the items and place bids.</p>
+       <p style="margin:16px 0 0;font-size:15px;line-height:1.6">We'll email you if someone outbids you, and if you win.</p>`,
+      { label: "Browse the auction", url: appUrl("/") }
+    ),
+    text: `Your account for the CFC SB3E Pre-Loved Auction is ready.\n\nSign in with your email address and password: ${appUrl("/login")}\n\nWe'll email you if someone outbids you, and if you win.`,
   });
 }
 

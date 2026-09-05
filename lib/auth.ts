@@ -1,9 +1,19 @@
 import "server-only";
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from "crypto";
+import type { ScryptOptions } from "crypto";
+import { promisify } from "util";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { db } from "@/lib/db";
-import type { Role, User } from "@prisma/client";
+import type { User } from "@prisma/client";
+
+// promisify loses scrypt's options overload, so name the shape we use.
+const scryptAsync = promisify(scrypt) as (
+  password: string,
+  salt: Buffer,
+  keylen: number,
+  options: ScryptOptions
+) => Promise<Buffer>;
 
 const SESSION_COOKIE = "pla_session";
 const SESSION_DAYS = 30;
@@ -55,45 +65,181 @@ export function isConfiguredAdmin(email: string): boolean {
   return list.includes(normaliseEmail(email));
 }
 
+// ------------------------------------------------------------------ passwords
+
 /**
- * Issues a single-use login token. Only the SHA-256 hash is stored, so a leak
- * of the database does not hand anyone a working login link.
+ * Passwords are hashed with scrypt, which is deliberately slow and memory-hard,
+ * so a stolen database does not hand anyone a list of usable passwords. scrypt
+ * ships with Node, so this needs no dependency.
  */
-export async function createLoginToken(email: string): Promise<string> {
+const SCRYPT_KEYLEN = 64;
+const SCRYPT_COST = 16384; // 2^14 — the Node default, a good balance on a small server.
+
+export const MIN_PASSWORD_LENGTH = 8;
+
+export function passwordProblem(password: string): string | null {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `Please use at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+  if (password.length > 200) return "That password is too long.";
+  return null;
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16);
+  const derived = await scryptAsync(password, salt, SCRYPT_KEYLEN, { N: SCRYPT_COST });
+  return `scrypt$${SCRYPT_COST}$${salt.toString("base64")}$${derived.toString("base64")}`;
+}
+
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  const parts = stored.split("$");
+  if (parts.length !== 4 || parts[0] !== "scrypt") return false;
+
+  const cost = Number(parts[1]);
+  const salt = Buffer.from(parts[2], "base64");
+  const expected = Buffer.from(parts[3], "base64");
+  if (!Number.isFinite(cost) || expected.length === 0) return false;
+
+  const derived = await scryptAsync(password, salt, expected.length, { N: cost });
+  return derived.length === expected.length && timingSafeEqual(derived, expected);
+}
+
+// --------------------------------------------------------- brute-force guard
+
+const MAX_FAILED_LOGINS = 8;
+const LOCKOUT_MINUTES = 15;
+
+export type SignInResult =
+  | { ok: true; user: User }
+  | { ok: false; reason: "invalid" | "locked" | "no-password" };
+
+/**
+ * Checks an email and password. Wrong email and wrong password are reported
+ * identically, so the form cannot be used to discover who has an account.
+ */
+export async function signInWithPassword(
+  email: string,
+  password: string
+): Promise<SignInResult> {
+  const address = normaliseEmail(email);
+  const user = await db.user.findUnique({ where: { email: address } });
+
+  if (!user) {
+    // Spend comparable time so a missing account is not detectable by timing.
+    await hashPassword(password);
+    return { ok: false, reason: "invalid" };
+  }
+
+  if (user.lockedUntil && user.lockedUntil > new Date()) {
+    return { ok: false, reason: "locked" };
+  }
+
+  if (!user.passwordHash) return { ok: false, reason: "no-password" };
+
+  if (await verifyPassword(password, user.passwordHash)) {
+    if (user.failedLogins > 0 || user.lockedUntil) {
+      await db.user.update({
+        where: { id: user.id },
+        data: { failedLogins: 0, lockedUntil: null },
+      });
+    }
+    return { ok: true, user };
+  }
+
+  const failed = user.failedLogins + 1;
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      failedLogins: failed,
+      lockedUntil:
+        failed >= MAX_FAILED_LOGINS
+          ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000)
+          : null,
+    },
+  });
+
+  return { ok: false, reason: failed >= MAX_FAILED_LOGINS ? "locked" : "invalid" };
+}
+
+export const LOCKOUT_MESSAGE = `Too many attempts. Please wait ${LOCKOUT_MINUTES} minutes and try again, or reset your password.`;
+
+/** Creates an account. Returns null if the address is already registered. */
+export async function createAccount(params: {
+  email: string;
+  password: string;
+  name?: string | null;
+  phone?: string | null;
+}): Promise<User | null> {
+  const address = normaliseEmail(params.email);
+  if (await db.user.findUnique({ where: { email: address } })) return null;
+
+  return db.user.create({
+    data: {
+      email: address,
+      name: params.name?.trim() || null,
+      phone: params.phone?.trim() || null,
+      passwordHash: await hashPassword(params.password),
+      role: isConfiguredAdmin(address) ? "ADMIN" : "BIDDER",
+    },
+  });
+}
+
+// ---------------------------------------------------------- password resets
+
+const RESET_TOKEN_MINUTES = 60;
+
+/**
+ * Issues a single-use reset token. Only its SHA-256 hash is stored, so a leak
+ * of the database does not hand anyone a working reset link.
+ */
+export async function createPasswordResetToken(email: string): Promise<string> {
   const address = normaliseEmail(email);
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token).digest("hex");
 
-  // One live link per address keeps old links from piling up.
+  // One live link per address keeps old ones from piling up.
   await db.loginToken.deleteMany({ where: { email: address } });
   await db.loginToken.create({
     data: {
       email: address,
       tokenHash,
-      expiresAt: new Date(Date.now() + LOGIN_TOKEN_MINUTES * 60 * 1000),
+      expiresAt: new Date(Date.now() + RESET_TOKEN_MINUTES * 60 * 1000),
     },
   });
   return token;
 }
 
-export async function consumeLoginToken(token: string): Promise<User | null> {
+/** Spends a reset token and sets the new password. */
+export async function consumePasswordResetToken(
+  token: string,
+  newPassword: string
+): Promise<User | null> {
   const tokenHash = createHash("sha256").update(token).digest("hex");
   const record = await db.loginToken.findUnique({ where: { tokenHash } });
   if (!record || record.usedAt || record.expiresAt < new Date()) return null;
 
+  const user = await db.user.findUnique({ where: { email: record.email } });
+  if (!user) return null;
+
   await db.loginToken.delete({ where: { id: record.id } });
 
-  const role: Role = isConfiguredAdmin(record.email) ? "ADMIN" : "BIDDER";
-  const existing = await db.user.findUnique({ where: { email: record.email } });
-  if (existing) {
-    // Promote (never demote) so an organiser added to ADMIN_EMAILS later still
-    // gets access, but an admin granted in the UI is not wiped out.
-    if (role === "ADMIN" && existing.role !== "ADMIN") {
-      return db.user.update({ where: { id: existing.id }, data: { role: "ADMIN" } });
-    }
-    return existing;
-  }
-  return db.user.create({ data: { email: record.email, role } });
+  return db.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash: await hashPassword(newPassword),
+      failedLogins: 0,
+      lockedUntil: null,
+      // Promote an organiser added to ADMIN_EMAILS after they signed up.
+      ...(isConfiguredAdmin(user.email) && user.role !== "ADMIN"
+        ? { role: "ADMIN" as const }
+        : {}),
+    },
+  });
+}
+
+/** True if the address has an account, used only to decide whether to email. */
+export async function accountExists(email: string): Promise<boolean> {
+  return Boolean(await db.user.findUnique({ where: { email: normaliseEmail(email) } }));
 }
 
 export async function startSession(userId: string): Promise<void> {

@@ -15,7 +15,7 @@ far" figure starts back at zero and the previous auction is kept as a record.
 
 **For bidders**
 - Browse live items, search and filter by category, sort by what's ending soonest
-- Sign in with a one-time emailed link — no password to remember
+- Sign in with an email address and password
 - Place bids, with a clear minimum and one-tap suggested amounts
 - Get an email the moment someone outbids them, and another if they win
 - Star items to a personal watchlist
@@ -52,9 +52,12 @@ npm run dev
 
 Open http://localhost:3000.
 
-To sign in, put your email in `ADMIN_EMAILS` in `.env`, go to `/login` and enter
-it. Without `RESEND_API_KEY` set, no email is actually sent — the sign-in link is
-printed in the terminal running `npm run dev`. Copy it into the browser.
+To become an organiser, put your email in `ADMIN_EMAILS` in `.env`, then create
+an account at `/signup` with that address — it is made an admin automatically.
+
+Without an email provider configured, no mail is actually sent; each message is
+printed in the terminal running `npm run dev`. That is enough to follow a
+password-reset link during development.
 
 Useful commands:
 
@@ -66,8 +69,9 @@ Useful commands:
 | `npm run db:studio` | Browse the data in Prisma Studio |
 | `npm run seed` | Load a demo auction |
 | `npm run check` | Run the auction-rules checks against the database |
+| `npm run check:auth` | Run the password and sign-in checks |
 
-> `npm run check` writes to whatever `DATABASE_URL` points at. Point it at a
+> Both `check` scripts write to whatever `DATABASE_URL` points at. Point it at a
 > scratch database, not the live one.
 
 Every push and pull request runs the build (which type-checks the whole project)
@@ -140,8 +144,8 @@ or apply it by hand with `npm run db:push` against the production database.
 
 Email is optional in the sense that the app runs without it — messages are
 written to the server log instead — but for a real auction you need it, because
-that is how bidders receive their sign-in links. The organiser tools show a
-warning until it is set up.
+it carries the outbid and winner notifications, and the password-reset links.
+The organiser tools show a warning until it is set up.
 
 Two providers are supported. Set **one**.
 
@@ -164,11 +168,15 @@ at that domain.
 
 If both keys are set, Brevo is used.
 
-A send that fails is never silent: a bidder who can't be sent a sign-in link is
-told so rather than being shown "check your inbox", and failed outbid or winner
-emails are logged with a line naming the person to contact. Bidding and closing
-never fail because of email — the bid is recorded and the item is settled
-regardless.
+A send that fails is never silent: someone who can't be sent a password-reset
+link is told so rather than being shown "check your inbox", and failed outbid or
+winner emails are logged with a line naming the person to contact. Bidding and
+closing never fail because of email — the bid is recorded and the item is
+settled regardless.
+
+Note that signing in does **not** depend on email. That is deliberate: a mail
+problem should cost people their notifications, not their access to the
+auction.
 
 ### Photos
 
@@ -223,7 +231,7 @@ app/                 pages, server actions and API routes
 components/          UI, split into shared and admin/
 lib/
   auction.ts         bidding rules, anti-sniping, closing, fundraising totals
-  auth.ts            magic links and signed session cookies
+  auth.ts            passwords (scrypt), lockout, resets, session cookies
   email.ts           Resend, or the server log when no key is set
   money.ts           integer minor units — no floating point in bid maths
 prisma/schema.prisma the data model
@@ -231,5 +239,7 @@ scripts/check-rules.ts  auction-rule checks
 ```
 
 Money is stored in integer centavos throughout, so bid arithmetic is exact.
-Sign-in tokens are stored only as SHA-256 hashes, so a database leak doesn't hand
-anyone a working login link.
+Passwords are hashed with scrypt and never stored in the clear, repeated failed
+sign-ins lock an account for 15 minutes, and password-reset tokens are stored
+only as SHA-256 hashes, so a database leak hands nobody a usable password or a
+working reset link.
