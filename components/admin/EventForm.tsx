@@ -78,7 +78,7 @@ export function EventForm({ event }: { event?: EventValues }) {
         <p className="hint">Shown on the auction home page. A sentence or two is plenty.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 [&>*]:min-w-0 sm:grid-cols-3">
         <div>
           <label className="label" htmlFor="goal">
             Fundraising goal
@@ -121,7 +121,7 @@ export function EventForm({ event }: { event?: EventValues }) {
         iso={event?.startsAt ? new Date(event.startsAt).toISOString() : null}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 [&>*]:min-w-0 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="paymentInstructions">
             Payment instructions

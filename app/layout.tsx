@@ -56,7 +56,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </span>
             </Link>
 
-            <nav className="ml-auto hidden items-center gap-1 md:flex">
+            <nav className="ml-auto hidden min-w-0 items-center gap-1 md:flex">
               {links.map((link) => (
                 <Link
                   key={link.href}
@@ -67,8 +67,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </Link>
               ))}
               {user ? (
-                <div className="ml-2 flex items-center gap-2 border-l border-line pl-3">
-                  <span className="max-w-[14ch] truncate text-xs text-muted" title={user.email}>
+                <div className="ml-2 flex min-w-0 items-center gap-2 border-l border-line pl-3">
+                  <span
+                    className="hidden max-w-[14ch] truncate text-xs text-muted lg:block"
+                    title={user.email}
+                  >
                     {user.name || user.email}
                   </span>
                   <SignOutButton />
