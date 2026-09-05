@@ -129,7 +129,7 @@ export function SignUpForm() {
         <input id="phone" name="phone" autoComplete="tel" className="field" {...phone} />
         <p className="hint">So organisers can reach you about payment and pickup if you win.</p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 [&>*]:min-w-0 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="password">
             Password

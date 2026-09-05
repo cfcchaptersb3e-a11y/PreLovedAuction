@@ -25,6 +25,19 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  /* Belt and braces: clip rather than hidden, which would break the sticky header. */
+  overflow-x: clip;
+}
+
+/* Safari sizes date and select controls from their content and ignores a plain
+   width:100%, so pin them explicitly. */
+input[type="datetime-local"],
+input[type="date"],
+input[type="time"],
+input[type="file"],
+select {
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* Buttons and inputs are used on nearly every screen, so they live here rather
@@ -52,7 +65,7 @@ body {
     @apply px-3 py-1.5 text-xs;
   }
   .field {
-    @apply w-full rounded-lg border border-line bg-white px-3 py-2.5 text-sm text-ink
+    @apply w-full min-w-0 max-w-full rounded-lg border border-line bg-white px-3 py-2.5 text-sm text-ink
            outline-none placeholder:text-muted/60 focus:border-forest focus:ring-2 focus:ring-forest/20;
   }
   .label {

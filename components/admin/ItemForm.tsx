@@ -102,7 +102,7 @@ export function ItemForm({
 
       <ImageUploader value={images} onChange={setImages} />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 [&>*]:min-w-0 sm:grid-cols-3">
         <div>
           <label className="label" htmlFor="donorName">
             Provided by
@@ -148,7 +148,7 @@ export function ItemForm({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 [&>*]:min-w-0 sm:grid-cols-4">
         <div>
           <label className="label" htmlFor="startingBid">
             Starting bid ({currency})

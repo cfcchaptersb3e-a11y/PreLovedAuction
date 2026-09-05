@@ -24,7 +24,7 @@ export function ProfileForm({
 
   return (
     <form action={action} className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 [&>*]:min-w-0 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="name">
             Your name
