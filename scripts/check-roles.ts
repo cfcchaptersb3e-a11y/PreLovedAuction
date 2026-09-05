@@ -14,11 +14,14 @@ const check = (name: string, ok: boolean, detail = "") => {
 };
 
 // The whole matrix, written out so a change to it has to be deliberate.
-const EXPECTED: Record<Role, { events: boolean; items: boolean; payments: boolean; people: boolean }> = {
-  BIDDER:     { events: false, items: false, payments: false, people: false },
-  CATALOGUER: { events: false, items: true,  payments: false, people: false },
-  TREASURER:  { events: false, items: false, payments: true,  people: false },
-  ADMIN:      { events: true,  items: true,  payments: true,  people: true },
+const EXPECTED: Record<
+  Role,
+  { events: boolean; items: boolean; payments: boolean; people: boolean; live: boolean }
+> = {
+  BIDDER:     { events: false, items: false, payments: false, people: false, live: false },
+  CATALOGUER: { events: false, items: true,  payments: false, people: false, live: false },
+  TREASURER:  { events: false, items: false, payments: true,  people: false, live: true  },
+  ADMIN:      { events: true,  items: true,  payments: true,  people: true,  live: true  },
 };
 
 for (const role of ASSIGNABLE_ROLES) {
@@ -41,6 +44,10 @@ check("only organizers can open or close an auction",
   ASSIGNABLE_ROLES.filter((r) => can(r, "events")).join(",") === "ADMIN");
 check("catalogers cannot see payments", !can("CATALOGUER", "payments"));
 check("treasurers cannot change items", !can("TREASURER", "items"));
+
+check("the treasurer can run the live console",
+  can("TREASURER", "live") && !can("TREASURER", "items") && !can("TREASURER", "events"));
+check("a cataloger cannot run the live console", !can("CATALOGUER", "live"));
 
 check("withdrawing an item needs organizer access, not just item access",
   !can("CATALOGUER", "events") && can("ADMIN", "events"));

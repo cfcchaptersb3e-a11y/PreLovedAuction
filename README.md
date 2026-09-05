@@ -30,7 +30,7 @@ job and nobody breaks the auction by accident:
 | --- | --- | --- |
 | **Bidder** | Browse and bid. Everyone starts here. | Anything in the organizer tools |
 | **Cataloger** | Add and edit items, upload photos | Open or close an auction; see winners or payments |
-| **Treasurer** | Work the winners list, mark paid and collected, export the CSV | Change items or auctions |
+| **Treasurer** | Run the live auction console, work the winners list, mark paid and collected, export the CSV | Change items or auctions |
 | **Organizer** | Everything, including granting roles | — |
 
 Organizers change roles under **People**. Anyone whose address is listed in
@@ -131,6 +131,8 @@ a gathering, with the room and people at home bidding into the same lot.
   lot does not close on its own.
 - **Organizer tools → Live auction** is the operator's console. Start a lot,
   record bids called in the room by paddle number or name, and mark it sold.
+  Treasurers and organizers can both run it, so the auctioneer calls the room
+  while somebody else records the bids — one person should not do both.
 - **`/live`** is what everyone else sees: the lot on the block, the current bid,
   and a one-tap bid button. A "Live now" link appears in the menu while a lot
   is running.

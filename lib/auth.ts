@@ -292,6 +292,7 @@ const REFUSALS: Record<Capability, string> = {
   items: "You need cataloger access to change items. Ask a chapter organizer.",
   payments: "You need treasurer access to see winners and payments.",
   people: "Only chapter organizers can change what someone is allowed to do.",
+  live: "You need treasurer or organizer access to run the live auction.",
 };
 
 export async function hasCapability(capability: Capability): Promise<boolean> {
