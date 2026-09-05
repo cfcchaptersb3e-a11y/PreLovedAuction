@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * Closes finished items and emails their winners. Wired to Vercel Cron in
- * vercel.json; pages also finalise lazily, so a missed run is not a problem.
+ * vercel.json; pages also finalize lazily, so a missed run is not a problem.
  */
 export async function GET(request: Request) {
   const expected = process.env.CRON_SECRET;
