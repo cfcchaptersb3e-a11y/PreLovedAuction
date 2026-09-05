@@ -8,6 +8,8 @@ import { ConfirmButton } from "@/components/admin/ConfirmButton";
 import { ItemManager, type ManagedItem } from "@/components/admin/ItemManager";
 import { GoalProgress } from "@/components/GoalProgress";
 import { deleteEvent } from "@/app/actions/admin";
+import { hasCapability } from "@/lib/auth";
+import { requirePageCapability } from "@/lib/page-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,9 @@ export default async function ManageEventPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requirePageCapability("items");
+  const manageEvents = await hasCapability("events");
+
   const { id } = await params;
   const event = await db.auctionEvent.findUnique({ where: { id } });
   if (!event) notFound();
@@ -56,7 +61,7 @@ export default async function ManageEventPage({
           <Link href={`/events/${event.slug}`} className="btn-secondary btn-sm">
             View public page
           </Link>
-          <EventStatusButtons eventId={event.id} status={event.status} />
+          {manageEvents && <EventStatusButtons eventId={event.id} status={event.status} />}
         </div>
       </div>
 
@@ -70,26 +75,28 @@ export default async function ManageEventPage({
         categories={categoryRows.map((row) => row.category!).filter(Boolean)}
       />
 
-      <details className="card p-5">
-        <summary className="cursor-pointer font-semibold">Auction settings</summary>
-        <div className="mt-5 border-t border-line pt-5">
-          <EventForm event={event} />
-        </div>
-        <div className="mt-6 border-t border-line pt-5">
-          <p className="mb-2 text-sm font-semibold">Danger zone</p>
-          <ConfirmButton
-            className="btn-danger btn-sm"
-            label="Delete this auction"
-            confirm="Delete this auction and all of its items? This cannot be undone."
-            action={deleteEvent.bind(null, event.id)}
-            redirectTo="/admin"
-          />
-          <p className="mt-2 text-xs text-muted">
-            Only possible while no bids have been placed. Closed auctions stay in the archive as a
-            record of what the chapter raised.
-          </p>
-        </div>
-      </details>
+      {manageEvents && (
+        <details className="card p-5">
+          <summary className="cursor-pointer font-semibold">Auction settings</summary>
+          <div className="mt-5 border-t border-line pt-5">
+            <EventForm event={event} />
+          </div>
+          <div className="mt-6 border-t border-line pt-5">
+            <p className="mb-2 text-sm font-semibold">Danger zone</p>
+            <ConfirmButton
+              className="btn-danger btn-sm"
+              label="Delete this auction"
+              confirm="Delete this auction and all of its items? This cannot be undone."
+              action={deleteEvent.bind(null, event.id)}
+              redirectTo="/admin"
+            />
+            <p className="mt-2 text-xs text-muted">
+              Only possible while no bids have been placed. Closed auctions stay in the archive as
+              a record of what the chapter raised.
+            </p>
+          </div>
+        </details>
+      )}
     </div>
   );
 }

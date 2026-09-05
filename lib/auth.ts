@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 import { db } from "@/lib/db";
 import type { User } from "@prisma/client";
+import { can, type Capability } from "@/lib/permissions";
 
 // promisify loses scrypt's options overload, so name the shape we use.
 const scryptAsync = promisify(scrypt) as (
@@ -273,13 +274,27 @@ export async function requireUser(): Promise<User> {
   return user;
 }
 
-export async function requireAdmin(): Promise<User> {
+/**
+ * The guard behind every organiser action. Refuses with wording that names the
+ * capability, so someone who has been given the wrong role can say what they
+ * were trying to do.
+ */
+export async function requireCapability(capability: Capability): Promise<User> {
   const user = await requireUser();
-  if (user.role !== "ADMIN") throw new Error("Only chapter admins can do that.");
+  if (!can(user.role, capability)) {
+    throw new Error(REFUSALS[capability]);
+  }
   return user;
 }
 
-export async function isAdmin(): Promise<boolean> {
+const REFUSALS: Record<Capability, string> = {
+  events: "Only chapter organisers can change an auction.",
+  items: "You need cataloguer access to change items. Ask a chapter organiser.",
+  payments: "You need treasurer access to see winners and payments.",
+  people: "Only chapter organisers can change what someone is allowed to do.",
+};
+
+export async function hasCapability(capability: Capability): Promise<boolean> {
   const user = await getCurrentUser();
-  return user?.role === "ADMIN";
+  return user ? can(user.role, capability) : false;
 }

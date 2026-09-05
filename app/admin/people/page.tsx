@@ -1,7 +1,9 @@
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { requirePageCapability } from "@/lib/page-guards";
 import { formatMoney } from "@/lib/money";
-import { RoleToggle } from "@/components/admin/RoleToggle";
+import { RoleSelect } from "@/components/admin/RoleSelect";
+import { ASSIGNABLE_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +12,8 @@ export default async function PeoplePage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  await requirePageCapability("people");
+
   const params = await searchParams;
   const query = (params.q ?? "").trim();
   const me = await getCurrentUser();
@@ -36,9 +40,18 @@ export default async function PeoplePage({
       <div>
         <h2 className="text-lg font-bold">People</h2>
         <p className="text-sm text-muted">
-          Everyone who has signed in to bid. Organisers listed in the ADMIN_EMAILS setting are made
-          admins automatically the first time they sign in.
+          Everyone who has signed up. Change what someone is allowed to do with the role picker —
+          give helpers the least access that lets them do their job, so nobody can break the
+          auction by accident.
         </p>
+        <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+          {ASSIGNABLE_ROLES.map((role) => (
+            <div key={role} className="rounded-lg border border-line bg-white px-3 py-2">
+              <dt className="font-semibold">{ROLE_LABELS[role]}</dt>
+              <dd className="text-xs text-muted">{ROLE_DESCRIPTIONS[role]}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
       <form className="card flex flex-wrap items-end gap-3 p-4" action="/admin/people">
@@ -53,7 +66,39 @@ export default async function PeoplePage({
         </button>
       </form>
 
-      <div className="card overflow-x-auto">
+      {/* On a phone the role picker would sit off the right of a scrolling
+          table, so the same rows are stacked instead. */}
+      <div className="space-y-3 sm:hidden">
+        {users.length === 0 && (
+          <p className="card p-8 text-center text-muted">Nobody has signed up yet.</p>
+        )}
+        {users.map((user) => {
+          const wonTotal = user.wonItems.reduce(
+            (sum, item) => sum + (item.winningBidCents ?? 0),
+            0
+          );
+          const currency = user.wonItems[0]?.event.currency ?? "PHP";
+          return (
+            <div key={user.id} className="card space-y-3 p-4">
+              <div>
+                <p className="font-semibold">{user.name || "—"}</p>
+                <a href={`mailto:${user.email}`} className="break-all text-sm text-muted hover:underline">
+                  {user.email}
+                </a>
+                {user.phone && <p className="text-sm text-muted">{user.phone}</p>}
+              </div>
+              <p className="text-xs text-muted">
+                {user._count.bids} {user._count.bids === 1 ? "bid" : "bids"}
+                {wonTotal > 0 && ` · ${formatMoney(wonTotal, currency)} won`}
+              </p>
+              <RoleSelect userId={user.id} role={user.role} isSelf={user.id === me?.id} />
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="hidden sm:block">
+        <div className="card overflow-x-auto">
         <table className="w-full min-w-[42rem] text-sm">
           <thead className="border-b border-line bg-parchment/60 text-left">
             <tr>
@@ -85,16 +130,7 @@ export default async function PeoplePage({
                     {wonTotal > 0 ? formatMoney(wonTotal, currency) : "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`chip ${user.role === "ADMIN" ? "bg-forest-light text-forest" : "bg-parchment text-muted"}`}
-                      >
-                        {user.role === "ADMIN" ? "Organiser" : "Bidder"}
-                      </span>
-                      {user.id !== me?.id && (
-                        <RoleToggle userId={user.id} isAdmin={user.role === "ADMIN"} />
-                      )}
-                    </div>
+                    <RoleSelect userId={user.id} role={user.role} isSelf={user.id === me?.id} />
                   </td>
                 </tr>
               );
@@ -108,6 +144,7 @@ export default async function PeoplePage({
             )}
           </tbody>
         </table>
+      </div>
       </div>
     </div>
   );

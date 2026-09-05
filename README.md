@@ -21,6 +21,21 @@ far" figure starts back at zero and the previous auction is kept as a record.
 - Star items to a personal watchlist
 - See every bid they've placed and everything they've won, with payment details
 
+**Roles**
+
+Four roles, so helpers can be given the least access that lets them do their
+job and nobody breaks the auction by accident:
+
+| Role | Can | Cannot |
+| --- | --- | --- |
+| **Bidder** | Browse and bid. Everyone starts here. | Anything in the organiser tools |
+| **Cataloguer** | Add and edit items, upload photos | Open or close an auction; see winners or payments |
+| **Treasurer** | Work the winners list, mark paid and collected, export the CSV | Change items or auctions |
+| **Organiser** | Everything, including granting roles | — |
+
+Organisers change roles under **People**. Anyone whose address is listed in
+`ADMIN_EMAILS` becomes an organiser when they sign up.
+
 **For organisers**
 - Create an auction, set the goal, the currency and the payment/pickup instructions
 - Add items with photos (upload from a phone, or paste image links), a starting
@@ -70,6 +85,7 @@ Useful commands:
 | `npm run seed` | Load a demo auction |
 | `npm run check` | Run the auction-rules checks against the database |
 | `npm run check:auth` | Run the password and sign-in checks |
+| `npm run check:roles` | Run the role permission checks |
 
 > Both `check` scripts write to whatever `DATABASE_URL` points at. Point it at a
 > scratch database, not the live one.
@@ -232,6 +248,7 @@ components/          UI, split into shared and admin/
 lib/
   auction.ts         bidding rules, anti-sniping, closing, fundraising totals
   auth.ts            passwords (scrypt), lockout, resets, session cookies
+  permissions.ts     what each role may do — read by both guards and the UI
   email.ts           Resend, or the server log when no key is set
   money.ts           integer minor units — no floating point in bid maths
 prisma/schema.prisma the data model

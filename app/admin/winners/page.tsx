@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
+import { requirePageCapability } from "@/lib/page-guards";
 import { StatusToggle } from "@/components/admin/WinnerRow";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,8 @@ export default async function WinnersPage({
 }: {
   searchParams: Promise<{ event?: string; filter?: string }>;
 }) {
+  await requirePageCapability("payments");
+
   const params = await searchParams;
   const events = await db.auctionEvent.findMany({ orderBy: { createdAt: "desc" } });
   const eventId = params.event ?? events[0]?.id;

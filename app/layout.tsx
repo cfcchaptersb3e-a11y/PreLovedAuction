@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SignOutButton } from "@/components/SignOutButton";
 import { MobileNav } from "@/components/MobileNav";
+import { isStaff, staffLandingPath } from "@/lib/permissions";
 
 export const metadata: Metadata = {
   title: "CFC SB3E Pre-Loved Auction",
@@ -29,7 +30,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     { href: "/watchlist", label: watchCount > 0 ? `Watchlist (${watchCount})` : "Watchlist" },
     { href: "/events", label: "Past auctions" },
     ...(user ? [{ href: "/account", label: "My bids" }] : []),
-    ...(user?.role === "ADMIN" ? [{ href: "/admin", label: "Admin" }] : []),
+    ...(user && isStaff(user.role)
+      ? [{ href: staffLandingPath(user.role), label: "Organiser tools" }]
+      : []),
   ];
 
   return (

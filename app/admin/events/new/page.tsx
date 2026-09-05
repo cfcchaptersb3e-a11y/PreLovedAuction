@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { EventForm } from "@/components/admin/EventForm";
+import { requirePageCapability } from "@/lib/page-guards";
 
 export const dynamic = "force-dynamic";
 
-export default function NewEventPage() {
+export default async function NewEventPage() {
+  await requirePageCapability("events");
+
   return (
     <div className="max-w-3xl space-y-5">
       <Link href="/admin" className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink">

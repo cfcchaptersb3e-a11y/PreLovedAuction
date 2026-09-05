@@ -13,7 +13,15 @@ datasource db {
 }
 
 enum Role {
+  /// Can browse and bid. Everyone starts here.
   BIDDER
+  /// Collects donations: adds and edits items, uploads photos. Cannot open or
+  /// close an auction, and cannot see winners' contact details or payments.
+  CATALOGUER
+  /// Handles the money afterwards: the winners report, marking paid and
+  /// collected, the CSV export. Cannot change items or auctions.
+  TREASURER
+  /// Everything, including granting these roles.
   ADMIN
 }
 
