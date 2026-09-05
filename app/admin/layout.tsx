@@ -36,21 +36,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </nav>
       </div>
 
-      {!email.configured && (
-        <p className="rounded-xl border border-clay/40 bg-clay-light p-4 text-sm text-ink">
-          <strong className="font-semibold">Emails are not being sent.</strong> No email service is
-          configured, so nobody can receive a sign-in link and bidders can&rsquo;t get in. Sign-in
-          links are written to the server log instead. Set <code>RESEND_API_KEY</code> in the
-          deployment settings before opening an auction.
-        </p>
-      )}
-
-      {email.configured && email.usingTestSender && (
-        <p className="rounded-xl border border-gold/40 bg-clay-light p-4 text-sm text-ink">
-          <strong className="font-semibold">Email is in testing mode.</strong> Messages are sent from
-          Resend&rsquo;s shared address, which only delivers to the account owner&rsquo;s own inbox —
-          your bidders will receive nothing. Verify a sending domain in Resend and set{" "}
-          <code>EMAIL_FROM</code> to an address at that domain before inviting anyone.
+      {email.warning && (
+        <p
+          className={`rounded-xl border p-4 text-sm text-ink ${
+            email.configured ? "border-gold/40" : "border-clay/40"
+          } bg-clay-light`}
+        >
+          <strong className="font-semibold">
+            {email.configured ? "Email needs attention." : "Emails are not being sent."}
+          </strong>{" "}
+          {email.warning}
         </p>
       )}
 
