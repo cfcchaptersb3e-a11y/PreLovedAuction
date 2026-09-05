@@ -57,3 +57,6 @@ jobs:
 
       - name: Check the auction rules
         run: npm run check
+
+      - name: Check sign-in and passwords
+        run: npm run check:auth
