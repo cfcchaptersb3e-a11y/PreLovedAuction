@@ -113,13 +113,21 @@ export async function placeBid(params: {
   if (!result) throw new BidError("Too many bids landed at once. Please try again.");
 
   if (outbid) {
-    await sendOutbidEmail({
-      to: outbid.email,
-      itemTitle: outbid.itemTitle,
-      itemId,
-      newAmountCents: result.amountCents,
-      currency: outbid.currency,
-    });
+    // The bid is already placed; a failed notification must not undo it.
+    try {
+      await sendOutbidEmail({
+        to: outbid.email,
+        itemTitle: outbid.itemTitle,
+        itemId,
+        newAmountCents: result.amountCents,
+        currency: outbid.currency,
+      });
+    } catch (error) {
+      console.error(
+        `OUTBID EMAIL FAILED for ${outbid.email} on item ${itemId}:`,
+        error instanceof Error ? error.message : error
+      );
+    }
   }
 
   return result;
@@ -151,14 +159,23 @@ export async function finalizeDueItems(): Promise<number> {
   for (const item of due) {
     const winner = await closeItem(item, item.event);
     if (winner) {
-      await sendWinnerEmail({
-        to: winner.email,
-        itemTitle: item.title,
-        itemId: item.id,
-        amountCents: winner.amountCents,
-        currency: item.event.currency,
-        paymentInstructions: item.event.paymentInstructions,
-      });
+      // The item is settled either way; the winner is also shown on their
+      // account page and in the organisers' winners report.
+      try {
+        await sendWinnerEmail({
+          to: winner.email,
+          itemTitle: item.title,
+          itemId: item.id,
+          amountCents: winner.amountCents,
+          currency: item.event.currency,
+          paymentInstructions: item.event.paymentInstructions,
+        });
+      } catch (error) {
+        console.error(
+          `WINNER EMAIL FAILED for ${winner.email} on item ${item.id} ("${item.title}") — contact them directly:`,
+          error instanceof Error ? error.message : error
+        );
+      }
     }
     closed++;
   }

@@ -5,9 +5,46 @@ import { formatMoney } from "@/lib/money";
  * Email sending is deliberately optional. With RESEND_API_KEY set, mail goes
  * out through Resend; without it the message is written to the server log so
  * the whole app still works during setup and local testing.
+ *
+ * A failed send is never swallowed. Sign-in is the case that matters most: if
+ * the link cannot be sent, the person waiting for it must be told, rather than
+ * being shown "check your inbox" for an email that will never arrive.
  */
 
 type Mail = { to: string; subject: string; html: string; text: string };
+
+/** Raised when a message could not be handed to the email provider. */
+export class EmailError extends Error {
+  constructor(
+    message: string,
+    /** Detail for the server log — never shown to the person who triggered it. */
+    readonly detail?: string
+  ) {
+    super(message);
+    this.name = "EmailError";
+  }
+}
+
+/**
+ * How the deployment is configured to send email. Used to warn organisers
+ * before an auction opens rather than letting them find out from bidders.
+ */
+export function emailStatus(): {
+  configured: boolean;
+  usingTestSender: boolean;
+  from: string;
+} {
+  const from = process.env.EMAIL_FROM ?? DEFAULT_FROM;
+  return {
+    configured: Boolean(process.env.RESEND_API_KEY),
+    // Resend only delivers from its shared address to the account owner, so a
+    // deployment left on it cannot email bidders at all.
+    usingTestSender: /@resend\.dev>?\s*$/.test(from.trim()),
+    from,
+  };
+}
+
+const DEFAULT_FROM = "CFC SB3E Auction <onboarding@resend.dev>";
 
 export function appUrl(path = "/"): string {
   const base = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -22,35 +59,64 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Turns a provider rejection into something a chapter organiser can act on. */
+function explainFailure(status: number, body: string): string {
+  const lower = body.toLowerCase();
+
+  if (status === 403 && lower.includes("testing emails")) {
+    return "Resend is still in testing mode for this account, so it will only deliver to the organiser's own address. Verify a sending domain in Resend to email everyone else.";
+  }
+  if (status === 401 || status === 403) {
+    return "The email service rejected our API key. Check RESEND_API_KEY in the deployment settings.";
+  }
+  if (status === 422) {
+    return "The email service rejected the sender address. Check EMAIL_FROM matches a domain verified in Resend.";
+  }
+  if (status === 429) {
+    return "The email service is rate limiting us. Wait a moment and try again.";
+  }
+  return `The email service returned ${status}.`;
+}
+
 async function send(mail: Mail): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
+
   if (!apiKey) {
+    // No provider configured: the log is the mailbox. Deliberately a success,
+    // so local development and first-time setup still work end to end.
     console.info(
       `\n--- EMAIL (not sent: RESEND_API_KEY is not set) ---\nTo: ${mail.to}\nSubject: ${mail.subject}\n\n${mail.text}\n--- end email ---\n`
     );
     return;
   }
+
+  let response: Response;
   try {
-    const response = await fetch("https://api.resend.com/emails", {
+    response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM ?? "CFC SB3E Auction <onboarding@resend.dev>",
+        from: process.env.EMAIL_FROM ?? DEFAULT_FROM,
         to: [mail.to],
         subject: mail.subject,
         html: mail.html,
         text: mail.text,
       }),
     });
-    if (!response.ok) {
-      console.error(`Email to ${mail.to} failed: ${response.status} ${await response.text()}`);
-    }
   } catch (error) {
-    // A bidder's action must never fail because the mail server is down.
-    console.error("Email send failed:", error);
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`Email to ${mail.to} could not be sent: ${detail}`);
+    throw new EmailError("We couldn't reach the email service.", detail);
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    const reason = explainFailure(response.status, body);
+    console.error(`Email to ${mail.to} rejected: ${response.status} ${body}`);
+    throw new EmailError(reason, `${response.status} ${body}`);
   }
 }
 

@@ -10,3 +10,4 @@ build
 !/public/uploads/.gitkeep
 next-env.d.ts
 .vercel
+tsconfig.tsbuildinfo
