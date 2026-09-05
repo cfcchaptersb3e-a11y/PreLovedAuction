@@ -106,7 +106,9 @@ export function ImageUploader({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        {/* A file input is sized from its button plus the "no file chosen"
+            text, which overruns a narrow phone screen unless pinned. */}
         <input
           ref={fileInput}
           type="file"
@@ -114,7 +116,7 @@ export function ImageUploader({
           multiple
           disabled={busy || value.length >= 8}
           onChange={(event) => upload(event.target.files)}
-          className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-forest file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
+          className="w-full min-w-0 max-w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-forest file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
         />
         {busy && <span className="text-sm text-muted">Uploading…</span>}
       </div>
