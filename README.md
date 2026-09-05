@@ -149,10 +149,23 @@ domain rather than Resend's test address, verify the domain with them and set
 
 ### Photos
 
-With Vercel Blob storage connected, organisers can upload photos straight from a
-phone. Without it, uploads fall back to writing into `public/uploads` — fine when
-self-hosting, but Vercel's filesystem is read-only, so add Blob storage there.
-Pasting image links always works.
+Photos are shrunk in the browser before they are sent — long edge 1600px, saved
+as JPEG. A 4 MB phone photo becomes a few hundred kilobytes, which keeps uploads
+quick on mobile data, keeps item pages light for bidders, and stays under
+Vercel's 4.5 MB request limit (which it enforces before the app ever sees the
+request).
+
+**On Vercel you need Blob storage.** Add it under Storage in the dashboard and
+`BLOB_READ_WRITE_TOKEN` is set for you. Without it uploads are refused with a
+message saying so, because Vercel's filesystem is read-only and there is nowhere
+to put the file.
+
+**Self-hosting**, uploads are written to `public/uploads` and served back
+through `/api/uploads/<file>`. They are read through a route rather than as
+static files because anything written into `public/` after the build is not
+served by Next's production server.
+
+Pasting an image link always works, whatever the storage setup.
 
 ## Running an auction
 

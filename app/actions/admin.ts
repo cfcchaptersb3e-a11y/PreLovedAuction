@@ -162,7 +162,7 @@ function parseImageUrls(raw: string): string[] {
   return raw
     .split(/[\n,]/)
     .map((entry) => entry.trim())
-    .filter((entry) => /^(https?:\/\/|\/uploads\/)/.test(entry))
+    .filter((entry) => /^(https?:\/\/|\/api\/uploads\/)/.test(entry))
     .slice(0, 8);
 }
 
