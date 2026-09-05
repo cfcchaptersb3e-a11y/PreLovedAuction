@@ -93,18 +93,29 @@ and the auction-rule checks against a throwaway PostgreSQL service, via
    | `EMAIL_FROM` | e.g. `CFC SB3E Auction <auction@yourdomain.org>` |
    | `BLOB_READ_WRITE_TOKEN` | Set automatically if you add Vercel Blob storage |
 
-5. Deploy, then run the schema against the new database once, from your machine:
-
-   ```bash
-   DATABASE_URL="<the production URL>" npm run db:push
-   ```
+5. Deploy. The database tables are created for you — `vercel.json` sets a build
+   command that applies the schema before building, so there is no terminal step
+   and nothing to run from a laptop.
 
 6. Visit `/login`, sign in with an email from `ADMIN_EMAILS`, and you'll land in
    the organiser tools.
 
-`vercel.json` already registers a cron job that closes finished items every five
-minutes. Pages also close overdue items when they're viewed, so results stay
+`vercel.json` also registers a cron job that closes finished items every five
+minutes. Pages close overdue items when they're viewed too, so results stay
 correct even if a cron run is missed.
+
+### About the automatic schema step
+
+The build runs `prisma db push`, which is safe to repeat: on the first deploy it
+creates the tables, and on every deploy after that it does nothing unless the
+schema changed. Existing auction data is untouched.
+
+It deliberately runs *without* `--accept-data-loss`. If a future schema change
+would destroy data — dropping a column that still holds bids, say — the deploy
+fails rather than going through with it. That is the behaviour you want mid-
+auction, but it does mean such a change needs handling deliberately: make the
+change in two steps (add the new shape, migrate the data, then remove the old),
+or apply it by hand with `npm run db:push` against the production database.
 
 ### Email
 
