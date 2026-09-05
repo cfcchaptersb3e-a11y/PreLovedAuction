@@ -17,6 +17,7 @@ import {
   startSession,
 } from "@/lib/auth";
 import { EmailError, sendPasswordResetLink, sendWelcomeEmail } from "@/lib/email";
+import { staffLandingPath } from "@/lib/permissions";
 
 export type FormState = { error?: string; message?: string };
 
@@ -51,7 +52,7 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
   }
 
   await startSession(result.user.id);
-  redirect(result.user.role === "ADMIN" ? "/admin" : "/");
+  redirect(staffLandingPath(result.user.role));
 }
 
 // ------------------------------------------------------------------ sign up
@@ -86,7 +87,7 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   }
 
   await startSession(user.id);
-  redirect(user.role === "ADMIN" ? "/admin" : "/");
+  redirect(staffLandingPath(user.role));
 }
 
 // ----------------------------------------------------------- password reset
@@ -142,7 +143,7 @@ export async function resetPassword(_prev: FormState, formData: FormData): Promi
   }
 
   await startSession(user.id);
-  redirect(user.role === "ADMIN" ? "/admin" : "/");
+  redirect(staffLandingPath(user.role));
 }
 
 // -------------------------------------------------------------------- other

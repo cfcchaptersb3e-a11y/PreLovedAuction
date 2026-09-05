@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireCapability } from "@/lib/auth";
 import { finalizeDueItems, slugify } from "@/lib/auction";
 import { parseMoneyToCents } from "@/lib/money";
-import type { EventStatus, ItemStatus } from "@prisma/client";
+import type { EventStatus, ItemStatus, Role } from "@prisma/client";
+import { ASSIGNABLE_ROLES } from "@/lib/permissions";
 
 export type AdminFormState = { error?: string; message?: string };
 
@@ -41,7 +42,7 @@ export async function createEvent(
   _prev: AdminFormState,
   formData: FormData
 ): Promise<AdminFormState> {
-  await requireAdmin();
+  await requireCapability("events");
 
   const name = text(formData, "name");
   if (!name) return { error: "Give the auction a name, e.g. “Christmas 2026 Pre-Loved Auction”." };
@@ -73,7 +74,7 @@ export async function updateEvent(
   _prev: AdminFormState,
   formData: FormData
 ): Promise<AdminFormState> {
-  await requireAdmin();
+  await requireCapability("events");
 
   const id = text(formData, "eventId");
   const name = text(formData, "name");
@@ -111,7 +112,7 @@ export async function updateEvent(
  * running so winners are recorded immediately.
  */
 export async function setEventStatus(eventId: string, status: EventStatus): Promise<void> {
-  await requireAdmin();
+  await requireCapability("events");
 
   if (status === "OPEN") {
     // Only one auction is promoted at a time, so close any other open one.
@@ -144,7 +145,7 @@ export async function setEventStatus(eventId: string, status: EventStatus): Prom
 }
 
 export async function deleteEvent(eventId: string): Promise<void> {
-  await requireAdmin();
+  await requireCapability("events");
   const bidCount = await db.bid.count({ where: { item: { eventId } } });
   if (bidCount > 0) {
     throw new Error(
@@ -223,7 +224,7 @@ export async function createItem(
   _prev: AdminFormState,
   formData: FormData
 ): Promise<AdminFormState> {
-  await requireAdmin();
+  await requireCapability("items");
 
   const eventId = text(formData, "eventId");
   const event = await db.auctionEvent.findUnique({ where: { id: eventId } });
@@ -250,7 +251,7 @@ export async function updateItem(
   _prev: AdminFormState,
   formData: FormData
 ): Promise<AdminFormState> {
-  await requireAdmin();
+  await requireCapability("items");
 
   const itemId = text(formData, "itemId");
   const item = await db.item.findUnique({ where: { id: itemId }, include: { event: true } });
@@ -273,7 +274,7 @@ export async function updateItem(
 }
 
 export async function setItemStatus(itemId: string, status: ItemStatus): Promise<void> {
-  await requireAdmin();
+  await requireCapability("items");
   const item = await db.item.findUnique({ where: { id: itemId } });
   if (!item) return;
 
@@ -293,7 +294,7 @@ export async function setItemStatus(itemId: string, status: ItemStatus): Promise
 }
 
 export async function deleteItem(itemId: string): Promise<void> {
-  await requireAdmin();
+  await requireCapability("items");
   const item = await db.item.findUnique({ where: { id: itemId } });
   if (!item) return;
 
@@ -312,7 +313,7 @@ export async function deleteItem(itemId: string): Promise<void> {
 // --------------------------------------------------------------- winners
 
 export async function setPaymentStatus(itemId: string, paid: boolean): Promise<void> {
-  await requireAdmin();
+  await requireCapability("payments");
   await db.item.update({
     where: { id: itemId },
     data: { paymentStatus: paid ? "PAID" : "UNPAID" },
@@ -323,7 +324,7 @@ export async function setPaymentStatus(itemId: string, paid: boolean): Promise<v
 }
 
 export async function setHandoverStatus(itemId: string, collected: boolean): Promise<void> {
-  await requireAdmin();
+  await requireCapability("payments");
   await db.item.update({
     where: { id: itemId },
     data: { handoverStatus: collected ? "COLLECTED" : "PENDING" },
@@ -332,14 +333,18 @@ export async function setHandoverStatus(itemId: string, collected: boolean): Pro
   revalidatePath("/account");
 }
 
-export async function setUserRole(userId: string, makeAdmin: boolean): Promise<void> {
-  const actor = await requireAdmin();
-  if (actor.id === userId && !makeAdmin) {
-    throw new Error("You can't remove your own admin access — ask another admin to do it.");
+export async function setUserRole(userId: string, role: Role): Promise<void> {
+  const actor = await requireCapability("people");
+
+  if (!ASSIGNABLE_ROLES.includes(role)) {
+    throw new Error("That isn't a role we recognise.");
   }
-  await db.user.update({
-    where: { id: userId },
-    data: { role: makeAdmin ? "ADMIN" : "BIDDER" },
-  });
+  if (actor.id === userId && role !== "ADMIN") {
+    throw new Error(
+      "You can't remove your own organiser access — ask another organiser to do it."
+    );
+  }
+
+  await db.user.update({ where: { id: userId }, data: { role } });
   revalidatePath("/admin/people");
 }

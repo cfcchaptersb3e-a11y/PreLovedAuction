@@ -60,3 +60,6 @@ jobs:
 
       - name: Check sign-in and passwords
         run: npm run check:auth
+
+      - name: Check the role permissions
+        run: npm run check:roles

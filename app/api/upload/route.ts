@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
-import { requireAdmin } from "@/lib/auth";
+import { requireCapability } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -29,9 +29,12 @@ const ALLOWED = new Map([
  */
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    await requireCapability("items");
   } catch {
-    return NextResponse.json({ error: "Only organisers can upload photos." }, { status: 403 });
+    return NextResponse.json(
+      { error: "You need cataloguer access to upload photos." },
+      { status: 403 }
+    );
   }
 
   const blobToken = process.env.BLOB_READ_WRITE_TOKEN;

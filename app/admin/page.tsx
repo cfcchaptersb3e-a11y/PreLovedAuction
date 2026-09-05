@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { getEventTotals } from "@/lib/auction";
+import { hasCapability } from "@/lib/auth";
+import { requirePageCapability } from "@/lib/page-guards";
 import { formatMoney } from "@/lib/money";
 import { EventStatusButtons } from "@/components/admin/EventStatusButtons";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminHome() {
+  await requirePageCapability("items");
+  const manageEvents = await hasCapability("events");
+
   const events = await db.auctionEvent.findMany({ orderBy: { createdAt: "desc" } });
   const totals = await Promise.all(events.map((event) => getEventTotals(event.id)));
 
@@ -20,9 +25,11 @@ export default async function AdminHome() {
             chapter fundraises again — the total begins at zero.
           </p>
         </div>
-        <Link href="/admin/events/new" className="btn-primary">
-          + New auction
-        </Link>
+        {manageEvents && (
+          <Link href="/admin/events/new" className="btn-primary">
+            + New auction
+          </Link>
+        )}
       </div>
 
       {events.length === 0 ? (
@@ -32,11 +39,15 @@ export default async function AdminHome() {
           </p>
           <p className="mt-2 font-medium">No auctions yet</p>
           <p className="mt-1 text-sm text-muted">
-            Create your first auction, add the provided items, then open it for bidding.
+            {manageEvents
+              ? "Create your first auction, add the provided items, then open it for bidding."
+              : "A chapter organiser needs to create an auction before items can be added."}
           </p>
-          <Link href="/admin/events/new" className="btn-primary mt-5">
-            Create an auction
-          </Link>
+          {manageEvents && (
+            <Link href="/admin/events/new" className="btn-primary mt-5">
+              Create an auction
+            </Link>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -81,7 +92,7 @@ export default async function AdminHome() {
                   <Link href={`/admin/events/${event.id}`} className="btn-secondary btn-sm">
                     Manage items
                   </Link>
-                  <EventStatusButtons eventId={event.id} status={event.status} />
+                  {manageEvents && <EventStatusButtons eventId={event.id} status={event.status} />}
                 </div>
               </div>
             </div>

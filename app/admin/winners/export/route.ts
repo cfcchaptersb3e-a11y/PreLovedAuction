@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireCapability } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +13,12 @@ function csvCell(value: string | number | null | undefined): string {
 
 export async function GET(request: Request) {
   try {
-    await requireAdmin();
+    await requireCapability("payments");
   } catch {
-    return NextResponse.json({ error: "Organisers only." }, { status: 403 });
+    return NextResponse.json(
+      { error: "You need treasurer access to export the winners list." },
+      { status: 403 }
+    );
   }
 
   const eventId = new URL(request.url).searchParams.get("event");
