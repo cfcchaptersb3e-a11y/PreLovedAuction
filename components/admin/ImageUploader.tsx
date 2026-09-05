@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { shrinkImage } from "@/lib/image";
 
 /**
  * Photos can be uploaded from a phone or pasted in as links. Uploads go to
@@ -25,16 +26,40 @@ export function ImageUploader({
     setError(null);
 
     const uploaded: string[] = [];
-    for (const file of Array.from(files).slice(0, 8 - value.length)) {
-      const body = new FormData();
-      body.append("file", file);
+    for (const original of Array.from(files).slice(0, 8 - value.length)) {
       try {
+        const file = await shrinkImage(original);
+        const body = new FormData();
+        body.append("file", file);
+
         const response = await fetch("/api/upload", { method: "POST", body });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error ?? "Upload failed");
+
+        // A rejected upload can come back as an error page rather than JSON —
+        // Vercel answers an oversized body that way — so never assume JSON.
+        let data: { url?: string; error?: string } | null = null;
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error ??
+              (response.status === 413
+                ? "That photo is too large to upload. Please try a smaller one."
+                : `The photo couldn't be uploaded (error ${response.status}). Try again, or paste an image link instead.`)
+          );
+        }
+        if (!data?.url) throw new Error("The upload didn't return a photo, so nothing was saved.");
+
         uploaded.push(data.url);
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "Upload failed");
+        setError(
+          caught instanceof Error && caught.message
+            ? caught.message
+            : "The photo couldn't be uploaded. Try again, or paste an image link instead."
+        );
       }
     }
 
@@ -106,7 +131,10 @@ export function ImageUploader({
         </button>
       </div>
 
-      <p className="hint">Up to 8 photos. The first one is used as the item&rsquo;s cover.</p>
+      <p className="hint">
+        Up to 8 photos. The first one is used as the item&rsquo;s cover. Large photos are shrunk
+        automatically before uploading.
+      </p>
       {error && <p className="mt-1 text-xs text-clay">{error}</p>}
     </div>
   );
