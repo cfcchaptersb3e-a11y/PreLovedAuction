@@ -138,26 +138,37 @@ or apply it by hand with `npm run db:push` against the production database.
 
 ### Email
 
-Email is optional. Without `RESEND_API_KEY` the app works fine and writes each
-message to the server log — but then bidders can't receive sign-in links, so in
-practice you want it for a real auction.
+Email is optional in the sense that the app runs without it — messages are
+written to the server log instead — but for a real auction you need it, because
+that is how bidders receive their sign-in links. The organiser tools show a
+warning until it is set up.
 
-**You need a verified sending domain.** A new Resend account can only deliver to
-the address it was registered with, so with the default `onboarding@resend.dev`
-sender your bidders receive nothing. Add your domain under Domains in Resend,
-add the DNS records it gives you, and set `EMAIL_FROM` to an address at that
-domain. The organiser tools show a warning until this is done.
+Two providers are supported. Set **one**.
+
+**Brevo — no domain needed.** Brevo verifies a single sender address, so the
+chapter can send from an address it already owns. Free tier is 300 emails a day,
+comfortably more than an auction needs.
+
+1. Sign up at [brevo.com](https://www.brevo.com)
+2. **Senders, Domains & Dedicated IPs → Senders → Add a sender** — use the
+   chapter's own address, then enter the 6-digit code Brevo emails to it
+3. **SMTP & API → API Keys** — create one and set it as `BREVO_API_KEY`
+4. Set `EMAIL_FROM` to exactly that verified address, e.g.
+   `CFC SB3E Auction <sb3echapter@gmail.com>`
+
+**Resend — needs a verified domain.** A new Resend account only delivers to the
+address it was registered with, so with the default `onboarding@resend.dev`
+sender your bidders receive nothing. Add your domain under Domains, add the DNS
+records it gives you, set `RESEND_API_KEY`, and set `EMAIL_FROM` to an address
+at that domain.
+
+If both keys are set, Brevo is used.
 
 A send that fails is never silent: a bidder who can't be sent a sign-in link is
 told so rather than being shown "check your inbox", and failed outbid or winner
 emails are logged with a line naming the person to contact. Bidding and closing
 never fail because of email — the bid is recorded and the item is settled
 regardless.
-
-Sign up at [resend.com](https://resend.com) (the free tier covers an auction this
-size), create an API key, and add it as `RESEND_API_KEY`. To send from your own
-domain rather than Resend's test address, verify the domain with them and set
-`EMAIL_FROM` to match.
 
 ### Photos
 

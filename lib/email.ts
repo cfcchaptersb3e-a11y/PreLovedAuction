@@ -2,9 +2,15 @@ import "server-only";
 import { formatMoney } from "@/lib/money";
 
 /**
- * Email sending is deliberately optional. With RESEND_API_KEY set, mail goes
- * out through Resend; without it the message is written to the server log so
- * the whole app still works during setup and local testing.
+ * Email sending is deliberately optional, and supports two providers so a
+ * chapter can send without owning a domain.
+ *
+ * - **Brevo** (BREVO_API_KEY) verifies a single sender address — the chapter's
+ *   own Gmail, say — so no domain is needed.
+ * - **Resend** (RESEND_API_KEY) needs a verified sending domain before it will
+ *   deliver to anyone but the account owner.
+ * - With neither set, messages are written to the server log, so local
+ *   development and first-time setup still work end to end.
  *
  * A failed send is never swallowed. Sign-in is the case that matters most: if
  * the link cannot be sent, the person waiting for it must be told, rather than
@@ -25,26 +31,55 @@ export class EmailError extends Error {
   }
 }
 
-/**
- * How the deployment is configured to send email. Used to warn organisers
- * before an auction opens rather than letting them find out from bidders.
- */
-export function emailStatus(): {
-  configured: boolean;
-  usingTestSender: boolean;
-  from: string;
-} {
-  const from = process.env.EMAIL_FROM ?? DEFAULT_FROM;
-  return {
-    configured: Boolean(process.env.RESEND_API_KEY),
-    // Resend only delivers from its shared address to the account owner, so a
-    // deployment left on it cannot email bidders at all.
-    usingTestSender: /@resend\.dev>?\s*$/.test(from.trim()),
-    from,
-  };
+const DEFAULT_FROM = "CFC SB3E Auction <onboarding@resend.dev>";
+
+type Provider = "brevo" | "resend" | "none";
+
+function provider(): Provider {
+  if (process.env.BREVO_API_KEY) return "brevo";
+  if (process.env.RESEND_API_KEY) return "resend";
+  return "none";
 }
 
-const DEFAULT_FROM = "CFC SB3E Auction <onboarding@resend.dev>";
+/** Splits `Name <a@b.c>` into its parts. Brevo wants them separately. */
+export function parseSender(from: string): { name?: string; email: string } {
+  const match = from.trim().match(/^\s*(.*?)\s*<\s*([^>]+)\s*>\s*$/);
+  if (match) {
+    const name = match[1].replace(/^["']|["']$/g, "").trim();
+    return { name: name || undefined, email: match[2].trim() };
+  }
+  return { email: from.trim() };
+}
+
+/**
+ * How the deployment is configured to send email, and what is wrong with it.
+ * Shown to organisers so a misconfiguration is found before an auction opens
+ * rather than reported by a bidder who never got their link.
+ */
+export function emailStatus(): {
+  provider: Provider;
+  configured: boolean;
+  from: string;
+  warning: string | null;
+} {
+  const which = provider();
+  const from = process.env.EMAIL_FROM ?? DEFAULT_FROM;
+  const senderIsResendDefault = /@resend\.dev>?\s*$/.test(from.trim());
+
+  let warning: string | null = null;
+  if (which === "none") {
+    warning =
+      "No email service is configured, so nobody can receive a sign-in link and bidders can't get in. Sign-in links are written to the server log instead. Set BREVO_API_KEY (or RESEND_API_KEY) in the deployment settings before opening an auction.";
+  } else if (which === "resend" && senderIsResendDefault) {
+    warning =
+      "Email is sent from Resend's shared address, which only delivers to the Resend account owner's own inbox — your bidders will receive nothing. Verify a sending domain in Resend and set EMAIL_FROM to an address at that domain.";
+  } else if (which === "brevo" && (!process.env.EMAIL_FROM || senderIsResendDefault)) {
+    warning =
+      "EMAIL_FROM is not set to your Brevo sender. Set it to the address you verified in Brevo, for example \"CFC SB3E Auction <chapter@gmail.com>\", or Brevo will reject every message.";
+  }
+
+  return { provider: which, configured: which !== "none", from, warning };
+}
 
 export function appUrl(path = "/"): string {
   const base = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -59,10 +94,9 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Turns a provider rejection into something a chapter organiser can act on. */
-function explainFailure(status: number, body: string): string {
+/** Turns a Resend rejection into something a chapter organiser can act on. */
+function explainResendFailure(status: number, body: string): string {
   const lower = body.toLowerCase();
-
   if (status === 403 && lower.includes("testing emails")) {
     return "Resend is still in testing mode for this account, so it will only deliver to the organiser's own address. Verify a sending domain in Resend to email everyone else.";
   }
@@ -78,33 +112,88 @@ function explainFailure(status: number, body: string): string {
   return `The email service returned ${status}.`;
 }
 
-async function send(mail: Mail): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
+/** Turns a Brevo rejection into something a chapter organiser can act on. */
+function explainBrevoFailure(status: number, body: string): string {
+  const lower = body.toLowerCase();
+  if (status === 401) {
+    return "Brevo rejected our API key. Check BREVO_API_KEY in the deployment settings.";
+  }
+  if (lower.includes("sender") && (lower.includes("not valid") || lower.includes("not found"))) {
+    return "Brevo does not recognise the sender address. Add it under Senders in Brevo and confirm the code it emails you, then make sure EMAIL_FROM matches it exactly.";
+  }
+  if (status === 402 || lower.includes("credit")) {
+    return "Brevo's daily sending allowance for this account has run out. It resets tomorrow.";
+  }
+  if (status === 429) {
+    return "Brevo is rate limiting us. Wait a moment and try again.";
+  }
+  if (status === 400) {
+    return "Brevo rejected the message. Check EMAIL_FROM is a sender you have verified in Brevo.";
+  }
+  return `Brevo returned ${status}.`;
+}
 
-  if (!apiKey) {
+type ProviderCall = {
+  url: string;
+  headers: Record<string, string>;
+  body: string;
+  explain: (status: number, body: string) => string;
+};
+
+function brevoCall(mail: Mail, apiKey: string): ProviderCall {
+  const sender = parseSender(process.env.EMAIL_FROM ?? DEFAULT_FROM);
+  return {
+    url: "https://api.brevo.com/v3/smtp/email",
+    headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
+    body: JSON.stringify({
+      sender: sender.name ? { name: sender.name, email: sender.email } : { email: sender.email },
+      to: [{ email: mail.to }],
+      subject: mail.subject,
+      htmlContent: mail.html,
+      textContent: mail.text,
+    }),
+    explain: explainBrevoFailure,
+  };
+}
+
+function resendCall(mail: Mail, apiKey: string): ProviderCall {
+  return {
+    url: "https://api.resend.com/emails",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: process.env.EMAIL_FROM ?? DEFAULT_FROM,
+      to: [mail.to],
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+    }),
+    explain: explainResendFailure,
+  };
+}
+
+async function send(mail: Mail): Promise<void> {
+  const which = provider();
+
+  if (which === "none") {
     // No provider configured: the log is the mailbox. Deliberately a success,
     // so local development and first-time setup still work end to end.
     console.info(
-      `\n--- EMAIL (not sent: RESEND_API_KEY is not set) ---\nTo: ${mail.to}\nSubject: ${mail.subject}\n\n${mail.text}\n--- end email ---\n`
+      `\n--- EMAIL (not sent: no email service is configured) ---\nTo: ${mail.to}\nSubject: ${mail.subject}\n\n${mail.text}\n--- end email ---\n`
     );
     return;
   }
 
+  const call =
+    which === "brevo"
+      ? brevoCall(mail, process.env.BREVO_API_KEY!)
+      : resendCall(mail, process.env.RESEND_API_KEY!);
+
   let response: Response;
   try {
-    response = await fetch("https://api.resend.com/emails", {
+    response = await fetch(call.url, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM ?? DEFAULT_FROM,
-        to: [mail.to],
-        subject: mail.subject,
-        html: mail.html,
-        text: mail.text,
-      }),
+      headers: call.headers,
+      body: call.body,
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
@@ -114,8 +203,8 @@ async function send(mail: Mail): Promise<void> {
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    const reason = explainFailure(response.status, body);
-    console.error(`Email to ${mail.to} rejected: ${response.status} ${body}`);
+    const reason = call.explain(response.status, body);
+    console.error(`Email to ${mail.to} rejected by ${which}: ${response.status} ${body}`);
     throw new EmailError(reason, `${response.status} ${body}`);
   }
 }
