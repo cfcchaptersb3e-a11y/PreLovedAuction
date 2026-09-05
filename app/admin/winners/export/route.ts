@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 
   const header = [
     "Item",
-    "Donated by",
+    "Provided by",
     "Winner name",
     "Winner email",
     "Winner phone",

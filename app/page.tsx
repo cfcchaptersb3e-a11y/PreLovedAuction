@@ -142,7 +142,7 @@ export default async function HomePage({
               id="q"
               name="q"
               defaultValue={query}
-              placeholder="Bag, guitar, donor's name…"
+              placeholder="Bag, guitar, member's name…"
               className="field"
             />
           </div>

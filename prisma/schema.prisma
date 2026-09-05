@@ -102,7 +102,7 @@ model Item {
   description       String?
   category          String?
   condition         String?
-  /// Who donated the item — shown on the listing to credit the member.
+  /// Who provided the item — shown on the listing to credit the member.
   donorName         String?
   imageUrls         String[]   @default([])
 

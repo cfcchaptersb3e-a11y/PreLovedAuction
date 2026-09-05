@@ -9,7 +9,7 @@ import { MobileNav } from "@/components/MobileNav";
 export const metadata: Metadata = {
   title: "CFC SB3E Pre-Loved Auction",
   description:
-    "An online auction of pre-loved items donated by members of our CFC SB3E chapter, raising funds for chapter activities.",
+    "An online auction of pre-loved items provided by members of our CFC SB3E chapter, raising funds for chapter activities.",
 };
 
 export const viewport: Viewport = {

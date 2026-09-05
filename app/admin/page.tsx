@@ -32,7 +32,7 @@ export default async function AdminHome() {
           </p>
           <p className="mt-2 font-medium">No auctions yet</p>
           <p className="mt-1 text-sm text-muted">
-            Create your first auction, add the donated items, then open it for bidding.
+            Create your first auction, add the provided items, then open it for bidding.
           </p>
           <Link href="/admin/events/new" className="btn-primary mt-5">
             Create an auction

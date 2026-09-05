@@ -64,7 +64,7 @@ export function ItemCard({ item, currency }: { item: ItemCardData; currency: str
         )}
         <h3 className="line-clamp-2 font-semibold leading-snug">{item.title}</h3>
         {item.donorName && (
-          <p className="mt-1 text-xs text-muted">Donated by {item.donorName}</p>
+          <p className="mt-1 text-xs text-muted">Provided by {item.donorName}</p>
         )}
 
         <div className="mt-auto pt-3">
