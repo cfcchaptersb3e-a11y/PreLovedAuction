@@ -259,6 +259,11 @@ Pasting an image link always works, whatever the storage setup.
 7. **Next time**, create a new auction. The goal and the total start from zero;
    the old one stays in *Past auctions* as a record of what was raised.
 
+Before the first real auction, rehearse it: [docs/dry-run.md](docs/dry-run.md)
+records a full run — bidding, an outbid, a snipe at the buzzer, an item closing
+on its own, a reserve nobody met, and the winner paid and exported — and lists
+the two things a local run can't check.
+
 ## How it's built
 
 Next.js (App Router) with server actions, Prisma and PostgreSQL, Tailwind CSS,
