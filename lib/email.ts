@@ -54,7 +54,7 @@ export function parseSender(from: string): { name?: string; email: string } {
 /**
  * How the deployment is configured to send email, and what is wrong with it.
  * Shown to organizers so a misconfiguration is found before an auction opens
- * rather than reported by a bidder who never got their link.
+ * rather than by a bidder who never got their outbid alert.
  */
 export function emailStatus(): {
   provider: Provider;
@@ -69,7 +69,7 @@ export function emailStatus(): {
   let warning: string | null = null;
   if (which === "none") {
     warning =
-      "No email service is configured, so nobody can receive a sign-in link and bidders can't get in. Sign-in links are written to the server log instead. Set BREVO_API_KEY (or RESEND_API_KEY) in the deployment settings before opening an auction.";
+      "No email service is configured. Bidders can still sign in with their password, but nobody will get an outbid alert, a winner's notice or a password reset — those messages are written to the server log instead. Set BREVO_API_KEY (or RESEND_API_KEY) in the deployment settings before opening an auction.";
   } else if (which === "resend" && senderIsResendDefault) {
     warning =
       "Email is sent from Resend's shared address, which only delivers to the Resend account owner's own inbox — your bidders will receive nothing. Verify a sending domain in Resend and set EMAIL_FROM to an address at that domain.";

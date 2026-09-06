@@ -161,7 +161,7 @@ depends on a single one working:
 
 The cron runs only once a day because Vercel's free Hobby plan allows no more
 than that (and only guarantees the hour it runs in). That is fine here: the cron
-is the last line of defence, not the primary one.
+is the last line of defense, not the primary one.
 
 The practical consequence is that if an item ends when nobody is on the site,
 its winner's email can be delayed until someone next opens a page. Bidding is
@@ -259,6 +259,11 @@ Pasting an image link always works, whatever the storage setup.
 7. **Next time**, create a new auction. The goal and the total start from zero;
    the old one stays in *Past auctions* as a record of what was raised.
 
+Before the first real auction, rehearse it: [docs/dry-run.md](docs/dry-run.md)
+records a full run — bidding, an outbid, a snipe at the buzzer, an item closing
+on its own, a reserve nobody met, and the winner paid and exported — and lists
+the two things a local run can't check.
+
 ## How it's built
 
 Next.js (App Router) with server actions, Prisma and PostgreSQL, Tailwind CSS,
@@ -270,7 +275,7 @@ mark each one paid.
 app/                 pages, server actions and API routes
   actions/           bidding, auth and organizer mutations
   admin/             organizer tools
-  api/               magic-link verification, uploads, the closing cron job
+  api/               photo uploads and the nightly closing job
 components/          UI, split into shared and admin/
 lib/
   auction.ts         bidding rules, anti-sniping, closing, fundraising totals
