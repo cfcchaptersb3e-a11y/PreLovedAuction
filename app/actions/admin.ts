@@ -3,8 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { createPasswordResetToken, requireCapability } from "@/lib/auth";
-import { appUrl } from "@/lib/email";
+import {
+  approveResetRequest,
+  createPasswordResetToken,
+  dismissResetRequest,
+  requireCapability,
+} from "@/lib/auth";
+import { appUrl, sendPasswordResetLink } from "@/lib/email";
 import { finalizeDueItems, slugify } from "@/lib/auction";
 import { parseMoneyToCents } from "@/lib/money";
 import type { EventStatus, ItemStatus, Role } from "@prisma/client";
@@ -377,4 +382,45 @@ export async function issuePasswordReset(userId: string): Promise<string> {
 
   const token = await createPasswordResetToken(user);
   return appUrl(`/reset-password?token=${encodeURIComponent(token)}`);
+}
+
+/**
+ * Approves a request from somebody who signs in with a mobile number and has
+ * no inbox for a reset link. The address they gave is saved to their account
+ * and the link is emailed there.
+ *
+ * An organizer sees the number and the address side by side before doing this,
+ * which is the whole point: on its own, a mobile number typed into a form is
+ * no proof that the person typing it owns the account.
+ */
+export async function approveResetHelp(requestId: string): Promise<string> {
+  const organizer = await requireCapability("people");
+
+  const result = await approveResetRequest(requestId, organizer.id);
+  if (!result.ok) {
+    if (result.reason === "no-account")
+      throw new Error("No account uses that number, so there is nothing to reset.");
+    if (result.reason === "email-taken")
+      throw new Error("Another account already uses that email address.");
+    throw new Error("That request has already been dealt with.");
+  }
+
+  try {
+    await sendPasswordResetLink(result.user.email!, result.token);
+  } catch (error) {
+    console.error("Approved reset link failed to send:", error);
+    throw new Error(
+      "The address was saved to their account, but the email didn't send. Use Reset password on their row to get a link you can pass on."
+    );
+  }
+
+  // Deliberately no revalidatePath: re-rendering the list here would unmount
+  // the row before the organizer has read what happened to it. The next visit
+  // to the page picks up the change.
+  return result.user.email!;
+}
+
+export async function dismissResetHelp(requestId: string): Promise<void> {
+  const organizer = await requireCapability("people");
+  await dismissResetRequest(requestId, organizer.id);
 }

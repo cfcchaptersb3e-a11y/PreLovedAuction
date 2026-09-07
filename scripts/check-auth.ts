@@ -9,6 +9,7 @@ import {
   createAccount, signInWithPassword, hashPassword, verifyPassword,
   createPasswordResetToken, consumePasswordResetToken, passwordProblem, accountExists,
 } from "@/lib/auth";
+import { approveResetRequest, dismissResetRequest, requestResetHelp } from "@/lib/auth";
 import { identify, normalizeMobile, mobileProblem, formatMobile } from "@/lib/identity";
 import { db } from "@/lib/db";
 
@@ -163,6 +164,56 @@ async function main() {
   }
   check("the database refuses a second account on the same number", indexHeld);
 
+  // --- asking an organizer for help getting back in -----------------------
+  const helpEmail = `help-${suffix}@example.com`;
+  await requestResetHelp({ mobile: formatMobile(mobile), email: helpEmail });
+  let request = await db.passwordResetRequest.findFirst({ where: { mobile } });
+  check("a request is recorded against the account",
+    Boolean(request) && request!.userId === (byNumber.ok ? byNumber.user.id : null));
+  check("the number is stored normalized", request!.mobile === mobile);
+  check("nothing is sent yet", request!.status === "PENDING");
+
+  await requestResetHelp({ mobile, email: `second-${suffix}@example.com` });
+  const open = await db.passwordResetRequest.findMany({ where: { mobile, status: "PENDING" } });
+  check("asking twice leaves one request, with the later address",
+    open.length === 1 && open[0].email === `second-${suffix}@example.com`);
+
+  await requestResetHelp({ mobile: `0999${String(suffix).slice(-7)}`, email: helpEmail });
+  const orphan = await db.passwordResetRequest.findFirst({
+    where: { mobile: `0999${String(suffix).slice(-7)}` },
+  });
+  check("a request for an unknown number is still recorded", Boolean(orphan));
+  check("and is marked as matching no account", orphan!.userId === null);
+  const refused = await approveResetRequest(orphan!.id, "organizer");
+  check("approving it does nothing", !refused.ok && refused.reason === "no-account");
+
+  // The address must not be one somebody else is already signing in with.
+  await db.passwordResetRequest.updateMany({
+    where: { mobile }, data: { email: email },
+  });
+  const clash = await approveResetRequest(open[0].id, "organizer");
+  check("an address another account uses is refused",
+    !clash.ok && clash.reason === "email-taken");
+
+  await db.passwordResetRequest.updateMany({ where: { mobile }, data: { email: helpEmail } });
+  const approved = await approveResetRequest(open[0].id, "organizer");
+  check("approving issues a token", approved.ok && Boolean(approved.token));
+  check("and puts the address on the account", approved.ok && approved.user.email === helpEmail);
+  check("the token sets a new password",
+    approved.ok && (await consumePasswordResetToken(approved.token, "afterhelp1")) !== null);
+  check("which signs them in by number", (await signInWithPassword(mobile, "afterhelp1")).ok);
+  check("and now by address too", (await signInWithPassword(helpEmail, "afterhelp1")).ok);
+  const twice = await approveResetRequest(open[0].id, "organizer");
+  check("a request can't be approved twice", !twice.ok && twice.reason === "gone");
+
+  await requestResetHelp({ mobile, email: `later-${suffix}@example.com` });
+  const toDismiss = await db.passwordResetRequest.findFirst({ where: { mobile, status: "PENDING" } });
+  await dismissResetRequest(toDismiss!.id, "organizer");
+  const dismissed = await db.passwordResetRequest.findUnique({ where: { id: toDismiss!.id } });
+  check("dismissing closes it", dismissed?.status === "DISMISSED");
+  check("and it cannot then be approved",
+    !(await approveResetRequest(toDismiss!.id, "organizer")).ok);
+
   const both = await createAccount({
     email: `both-${suffix}@example.com`, mobile: `0918${String(suffix).slice(-7)}`,
     password: "eitherway1", name: "Tess Reyes",
@@ -172,6 +223,9 @@ async function main() {
   check("signing in by number works too",
     (await signInWithPassword(`0918${String(suffix).slice(-7)}`, "eitherway1")).ok);
 
+  await db.passwordResetRequest.deleteMany({
+    where: { mobile: { in: [mobile, `0999${String(suffix).slice(-7)}`] } },
+  });
   await db.user.deleteMany({ where: { email: { contains: `-${suffix}@example.com` } } });
   await db.user.deleteMany({ where: { mobile: { in: [mobile, `0918${String(suffix).slice(-7)}`] } } });
   await db.$disconnect();

@@ -7,6 +7,7 @@ import {
   LOCKOUT_MESSAGE,
   accountForEmail,
   consumePasswordResetToken,
+  requestResetHelp,
   createAccount,
   createPasswordResetToken,
   endSession,
@@ -26,7 +27,15 @@ import {
 import { EmailError, sendPasswordResetLink, sendWelcomeEmail } from "@/lib/email";
 import { staffLandingPath } from "@/lib/permissions";
 
-export type FormState = { error?: string; message?: string };
+export type FormState = {
+  error?: string;
+  message?: string;
+  /**
+   * Set when somebody asked to reset a password using a mobile number. The
+   * form then asks where to send the link, carrying the number back with it.
+   */
+  needsEmail?: string;
+};
 
 function field(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -133,12 +142,25 @@ export async function requestPasswordReset(
 ): Promise<FormState> {
   const raw = field(formData, "email");
 
-  // Somebody who signed up with a number only has nowhere for a link to go,
-  // so say what to do instead of pretending one was sent.
-  if (!raw.includes("@") && normalizeMobile(raw)) {
+  // Somebody who signs in with a number has nowhere for a link to go, so ask
+  // where to send one. An organizer approves it before anything is sent: the
+  // address is unverified, and a number alone proves nothing.
+  const asMobile = !raw.includes("@") ? normalizeMobile(raw) : null;
+  if (asMobile) {
+    const sendTo = field(formData, "sendTo");
+    if (!sendTo) return { needsEmail: asMobile };
+
+    if (!EMAIL_PATTERN.test(normalizeEmail(sendTo))) {
+      return { needsEmail: asMobile, error: "Please enter a valid email address." };
+    }
+
+    await requestResetHelp({ mobile: asMobile, email: sendTo });
+
+    // The same answer whether or not that number has an account.
     return {
-      error:
-        "Reset links are sent by email, and this is a mobile number. Ask a chapter organizer to reset your password for you.",
+      message: `Thanks — a chapter organizer will check this and send a link to ${normalizeEmail(
+        sendTo
+      )}. It isn't automatic, so give them a little time.`,
     };
   }
 

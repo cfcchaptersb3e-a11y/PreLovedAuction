@@ -4,6 +4,7 @@ import { requirePageCapability } from "@/lib/page-guards";
 import { formatMoney } from "@/lib/money";
 import { RoleSelect } from "@/components/admin/RoleSelect";
 import { ResetPasswordButton } from "@/components/admin/ResetPasswordButton";
+import { ResetRequests } from "@/components/admin/ResetRequests";
 import { ASSIGNABLE_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/lib/permissions";
 import { accountHandle, contactNumber, normalizeMobile } from "@/lib/identity";
 
@@ -26,6 +27,13 @@ export default async function PeoplePage({
   const digits = query.replace(/\D/g, "");
   const mobileQuery = normalizeMobile(query) ?? (digits || query);
 
+  const pendingRequests = await db.passwordResetRequest.findMany({
+    where: { status: "PENDING" },
+    orderBy: { createdAt: "asc" },
+    take: 50,
+    include: { user: { select: { name: true } } },
+  });
+
   const users = await db.user.findMany({
     where: query
       ? {
@@ -46,6 +54,19 @@ export default async function PeoplePage({
 
   return (
     <div className="space-y-5">
+      {/* First thing on the page: somebody who cannot get into their account is
+          waiting on an organizer, and that outranks the standing explainer. */}
+      <ResetRequests
+        requests={pendingRequests.map((request) => ({
+          id: request.id,
+          mobile: request.mobile,
+          email: request.email,
+          createdAt: request.createdAt.toISOString(),
+          personName: request.user?.name ?? null,
+          hasAccount: Boolean(request.userId),
+        }))}
+      />
+
       <div>
         <h2 className="text-lg font-bold">People</h2>
         <p className="text-sm text-muted">

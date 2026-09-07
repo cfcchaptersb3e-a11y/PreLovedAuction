@@ -97,8 +97,43 @@ model User {
   bids      Bid[]
   watches   Watch[]
   wonItems  Item[]  @relation("ItemWinner")
+  resetRequests PasswordResetRequest[]
 
   @@index([role])
+}
+
+/// Somebody who signed in with a mobile number and cannot get back in.
+///
+/// They have no inbox for a reset link, so they ask for one to be sent to an
+/// address — and an organizer approves it first. Without that approval anyone
+/// could type a member's number, give their own address and take the account.
+model PasswordResetRequest {
+  id        String   @id @default(cuid())
+
+  /// The number they signed in with, normalized. Kept even when it matches no
+  /// account, so an organizer can tell someone they mistyped it.
+  mobile    String
+  /// Where they are asking for the link to go.
+  email     String
+
+  /// The account the number matched, if any. Resolved when the request is made.
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status     ResetRequestStatus @default(PENDING)
+  createdAt  DateTime @default(now())
+  resolvedAt DateTime?
+  /// The organizer who dealt with it.
+  resolvedBy String?
+
+  @@index([status, createdAt])
+  @@index([mobile])
+}
+
+enum ResetRequestStatus {
+  PENDING
+  APPROVED
+  DISMISSED
 }
 
 /// A single-use, hashed password-reset token. Deleted once used or expired.

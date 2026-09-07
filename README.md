@@ -197,10 +197,24 @@ travel by email.** Somebody who signs up with a number alone can bid perfectly
 well, but nothing will chase them — they have to look. They can add an address
 later from their account page.
 
-That leaves one gap: a mobile-only member who forgets their password has no
-inbox for a reset link. Organizers close it under **People** → **Reset
+That leaves the question of what a mobile-only member does when they forget
+their password, since there is no inbox for a link. They enter their number on
+the forgot-password page and are asked where to send one. Nothing is sent yet:
+the request appears at the top of **People**, and an organizer approves it
+first. This is the security of the whole thing — a mobile number typed into a
+form is no proof that the person typing it owns the account, so without that
+step anyone could put a member's number with their own address and take the
+account. Approving saves the address to the account (so outbid alerts reach
+them from then on) and emails the link.
+
+The same confirmation appears whether or not the number matches an account, so
+the form cannot be used to find out who has one. Requests for numbers that
+match nothing are still recorded and shown to organizers with a warning, so
+somebody who mistyped their number can be told rather than left waiting.
+
+Organizers can also start a reset themselves from **People** → **Reset
 password**, which puts a single-use link on screen to read out or text over.
-It expires in an hour and works once.
+Both kinds of link expire in an hour and work once.
 
 Mobile numbers are unique through a partial index created by
 `scripts/ensure-indexes.ts`, not through `@unique` in the Prisma schema. Adding

@@ -289,6 +289,80 @@ export async function consumePasswordResetToken(
   });
 }
 
+// ------------------------------------------- reset help for mobile sign-ins
+
+/**
+ * Records that somebody who signs in with a mobile number wants a reset link
+ * sent to an address. Nothing is sent and nothing changes until an organizer
+ * approves it: the address is unverified, and on its own a number is not proof
+ * of anything.
+ *
+ * The same answer is given whether or not the number matches an account, so
+ * this cannot be used to find out who has one. The request is stored either
+ * way — an organizer can then tell somebody they mistyped their number rather
+ * than leaving them waiting for a link that was never coming.
+ */
+export async function requestResetHelp(params: {
+  mobile: string;
+  email: string;
+}): Promise<void> {
+  const mobile = normalizeMobile(params.mobile);
+  const email = normalizeEmail(params.email);
+  if (!mobile) return;
+
+  const user = await db.user.findFirst({ where: { mobile }, orderBy: { createdAt: "asc" } });
+
+  // One open request per number: asking twice should not give an organizer two
+  // things to read, and a later address supersedes an earlier one.
+  await db.passwordResetRequest.deleteMany({ where: { mobile, status: "PENDING" } });
+  await db.passwordResetRequest.create({
+    data: { mobile, email, userId: user?.id ?? null },
+  });
+}
+
+export type ResetApproval =
+  | { ok: true; user: User; token: string }
+  | { ok: false; reason: "gone" | "no-account" | "email-taken" };
+
+/**
+ * Approves a request: puts the address on the account so the person can be
+ * reached from now on, and issues the reset token to send there.
+ */
+export async function approveResetRequest(
+  requestId: string,
+  organizerId: string
+): Promise<ResetApproval> {
+  const request = await db.passwordResetRequest.findUnique({ where: { id: requestId } });
+  if (!request || request.status !== "PENDING") return { ok: false, reason: "gone" };
+  if (!request.userId) return { ok: false, reason: "no-account" };
+
+  const taken = await db.user.findUnique({ where: { email: request.email } });
+  if (taken && taken.id !== request.userId) return { ok: false, reason: "email-taken" };
+
+  const user = await db.user.update({
+    where: { id: request.userId },
+    data: { email: request.email },
+  });
+  const token = await createPasswordResetToken(user);
+
+  await db.passwordResetRequest.update({
+    where: { id: requestId },
+    data: { status: "APPROVED", resolvedAt: new Date(), resolvedBy: organizerId },
+  });
+
+  return { ok: true, user, token };
+}
+
+export async function dismissResetRequest(
+  requestId: string,
+  organizerId: string
+): Promise<void> {
+  await db.passwordResetRequest.updateMany({
+    where: { id: requestId, status: "PENDING" },
+    data: { status: "DISMISSED", resolvedAt: new Date(), resolvedBy: organizerId },
+  });
+}
+
 /** The account for an address, used only to decide whether to send a reset. */
 export async function accountForEmail(email: string): Promise<User | null> {
   return db.user.findUnique({ where: { email: normalizeEmail(email) } });
