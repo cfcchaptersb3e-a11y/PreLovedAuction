@@ -52,6 +52,12 @@ jobs:
       - name: Create the database schema
         run: npx prisma db push --skip-generate
 
+      # The unique index on mobile numbers is created here rather than declared
+      # in the Prisma schema; the deploy does the same thing right after its
+      # push. See scripts/ensure-indexes.ts.
+      - name: Create the indexes Prisma does not declare
+        run: npm run db:indexes
+
       - name: Build
         run: npm run build
 

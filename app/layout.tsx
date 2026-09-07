@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { SignOutButton } from "@/components/SignOutButton";
 import { MobileNav } from "@/components/MobileNav";
 import { isStaff, staffLandingPath } from "@/lib/permissions";
+import { accountHandle } from "@/lib/identity";
 
 export const metadata: Metadata = {
   title: "CFC SB3E Pre-Loved Auction",
@@ -80,9 +81,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <div className="ml-2 flex min-w-0 items-center gap-2 border-l border-line pl-3">
                   <span
                     className="hidden max-w-[14ch] truncate text-xs text-muted lg:block"
-                    title={user.email}
+                    title={accountHandle(user)}
                   >
-                    {user.name || user.email}
+                    {user.name || accountHandle(user)}
                   </span>
                   <SignOutButton />
                 </div>
@@ -94,7 +95,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </nav>
 
             <div className="ml-auto md:hidden">
-              <MobileNav links={links} signedIn={Boolean(user)} email={user?.email ?? null} />
+              <MobileNav
+                links={links}
+                signedIn={Boolean(user)}
+                email={user ? accountHandle(user) : null}
+              />
             </div>
           </div>
         </header>

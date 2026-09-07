@@ -256,11 +256,11 @@ export async function sendWelcomeEmail(params: { to: string; name?: string | nul
     subject: "Welcome to the CFC SB3E Pre-Loved Auction",
     html: layout(
       params.name ? `Welcome, ${escapeHtml(params.name.split(/\s+/)[0])}!` : "Welcome!",
-      `<p style="margin:0;font-size:15px;line-height:1.6">Your account is ready. Sign in any time with your email address and password to browse the items and place bids.</p>
+      `<p style="margin:0;font-size:15px;line-height:1.6">Your account is ready. Sign in any time with this email address — or the mobile number on your account — and your password.</p>
        <p style="margin:16px 0 0;font-size:15px;line-height:1.6">We'll email you if someone outbids you, and if you win.</p>`,
       { label: "Browse the auction", url: appUrl("/") }
     ),
-    text: `Your account for the CFC SB3E Pre-Loved Auction is ready.\n\nSign in with your email address and password: ${appUrl("/login")}\n\nWe'll email you if someone outbids you, and if you win.`,
+    text: `Your account for the CFC SB3E Pre-Loved Auction is ready.\n\nSign in with this email address, or the mobile number on your account, and your password: ${appUrl("/login")}\n\nWe'll email you if someone outbids you, and if you win.`,
   });
 }
 

@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { minimumBidCents } from "@/lib/auction";
+import { bidderName } from "@/lib/identity";
 import type { AuctionEvent, Item } from "@prisma/client";
 
 /**
@@ -46,7 +47,7 @@ export async function describeLot(item: Item): Promise<LotView> {
     db.bid.findFirst({
       where: { itemId: item.id },
       orderBy: [{ amountCents: "desc" }, { createdAt: "asc" }],
-      include: { user: { select: { name: true, email: true } } },
+      include: { user: { select: { name: true, email: true, mobile: true } } },
     }),
     db.bid.count({ where: { itemId: item.id } }),
   ]);
@@ -56,22 +57,21 @@ export async function describeLot(item: Item): Promise<LotView> {
     currentBidCents: top?.amountCents ?? 0,
     minimumBidCents: minimumBidCents(item, top?.amountCents ?? null),
     bidCount,
-    leader: top ? describeBidder(top.bidderLabel, top.user?.name, top.user?.email) : null,
+    leader: top ? describeBidder(top.bidderLabel, top.user) : null,
     isRunning: item.status === "LIVE",
   };
 }
 
-/** Bidders are shown to each other by first name and initial, never by email. */
+/**
+ * Bidders are shown to each other by first name and initial. Neither a full
+ * email address nor a full mobile number is ever put on the screen — the room
+ * can see this page.
+ */
 export function describeBidder(
   label: string | null,
-  name?: string | null,
-  email?: string | null
+  user?: { name?: string | null; email?: string | null; mobile?: string | null } | null
 ): string {
   if (label) return label;
-  if (name) {
-    const parts = name.trim().split(/\s+/);
-    return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : parts[0];
-  }
-  if (email) return `${email.slice(0, 2)}${"•".repeat(4)}`;
-  return "A bidder";
+  if (!user) return "A bidder";
+  return bidderName(user);
 }

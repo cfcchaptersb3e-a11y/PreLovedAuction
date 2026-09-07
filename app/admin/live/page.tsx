@@ -23,7 +23,7 @@ export default async function LiveConsolePage() {
 
   const winners = await db.user.findMany({
     where: { id: { in: lots.map((l) => l.winnerId).filter((id): id is string => Boolean(id)) } },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, mobile: true },
   });
   const winnerById = new Map(winners.map((w) => [w.id, w]));
 
@@ -58,11 +58,7 @@ export default async function LiveConsolePage() {
           status: lot.status,
           winningBidCents: lot.winningBidCents,
           winnerName: lot.winnerId
-            ? describeBidder(
-                null,
-                winnerById.get(lot.winnerId)?.name,
-                winnerById.get(lot.winnerId)?.email
-              )
+            ? describeBidder(null, winnerById.get(lot.winnerId))
             : lot.winnerLabel,
         }))}
         current={

@@ -62,8 +62,24 @@ enum BidChannel {
 
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique
+
+  /// Either of these can be used to sign in, and an account needs at least
+  /// one of them. Both are optional because plenty of people in the chapter
+  /// are easier to reach on a mobile number than by email — but only an
+  /// address can receive outbid alerts, winner notices and password resets.
+  email     String?  @unique
+  /// Normalized to 09XXXXXXXXX before it is stored, so the same number typed
+  /// as "0917 123 4567" or "+63 917 123 4567" finds the same account.
+  ///
+  /// Its uniqueness is a partial unique index created by scripts/ensure-indexes.ts
+  /// rather than `@unique` here. Adding a unique constraint through Prisma makes
+  /// `prisma db push` demand --accept-data-loss, and that flag would sit in the
+  /// deploy forever, waving through the destructive changes it is meant to catch.
+  mobile    String?
+
   name      String?
+  /// A second number kept only for reaching someone — a landline, or a number
+  /// left over from before mobile numbers could sign in. Never signs anyone in.
   phone     String?
   role      Role     @default(BIDDER)
 
@@ -90,12 +106,20 @@ model User {
 /// destructive migration against a live database for no functional gain.
 model LoginToken {
   id        String   @id @default(cuid())
-  email     String
+
+  /// Whose password this link resets. Tokens used to be keyed by email
+  /// address; `email` stays for links issued before that and for accounts
+  /// that have one, but `userId` is what a reset is actually looked up by,
+  /// so an account with only a mobile number can be reset too.
+  userId    String?
+  email     String?
+
   tokenHash String   @unique
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime @default(now())
 
+  @@index([userId])
   @@index([email])
   @@index([expiresAt])
 }

@@ -122,9 +122,11 @@ async function main() {
   // --- how bidders are shown to each other ---
   check("a paddle label is shown as given", describeBidder("Paddle 12") === "Paddle 12");
   check("a member is shown by first name and initial",
-    describeBidder(null, "Maria Santos Cruz") === "Maria C.");
+    describeBidder(null, { name: "Maria Santos Cruz" }) === "Maria C.");
   check("an email is never shown in full",
-    !describeBidder(null, null, "someone@example.com").includes("someone@example.com"));
+    !describeBidder(null, { email: "someone@example.com" }).includes("someone@example.com"));
+  check("a mobile number is never shown in full",
+    !describeBidder(null, { mobile: "09171234567" }).includes("09171234567"));
 
   await db.auctionEvent.delete({ where: { id: event.id } });
   await db.user.deleteMany({ where: { id: { in: [athome.id, other.id] } } });

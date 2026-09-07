@@ -14,7 +14,8 @@
     "check": "tsx --conditions react-server scripts/check-rules.ts",
     "check:auth": "tsx --conditions react-server scripts/check-auth.ts",
     "check:roles": "tsx --conditions react-server scripts/check-roles.ts",
-    "check:live": "tsx --conditions react-server scripts/check-live.ts"
+    "check:live": "tsx --conditions react-server scripts/check-live.ts",
+    "db:indexes": "tsx --conditions react-server scripts/ensure-indexes.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0",

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { requirePageCapability } from "@/lib/page-guards";
 import { StatusToggle } from "@/components/admin/WinnerRow";
+import { contactNumber } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
 
@@ -122,16 +123,21 @@ export default async function WinnersPage({
 
                 <div className="border-t border-line pt-3 text-sm">
                   <p className="font-medium">{item.winner?.name || "\u2014"}</p>
-                  <a
-                    href={`mailto:${item.winner?.email}`}
-                    className="break-all text-muted hover:underline"
-                  >
-                    {item.winner?.email}
-                  </a>
-                  {item.winner?.phone && (
+                  {item.winner?.email && (
+                    <a
+                      href={`mailto:${item.winner.email}`}
+                      className="break-all text-muted hover:underline"
+                    >
+                      {item.winner.email}
+                    </a>
+                  )}
+                  {item.winner && contactNumber(item.winner) && (
                     <p>
-                      <a href={`tel:${item.winner.phone}`} className="text-muted hover:underline">
-                        {item.winner.phone}
+                      <a
+                        href={`tel:${item.winner.mobile ?? item.winner.phone}`}
+                        className="text-muted hover:underline"
+                      >
+                        {contactNumber(item.winner)}
                       </a>
                     </p>
                   )}
@@ -177,11 +183,15 @@ export default async function WinnersPage({
                     </td>
                     <td className="px-4 py-3">{item.winner?.name || "\u2014"}</td>
                     <td className="px-4 py-3">
-                      <a href={`mailto:${item.winner?.email}`} className="hover:underline">
-                        {item.winner?.email}
-                      </a>
-                      {item.winner?.phone && (
-                        <p className="text-xs text-muted">{item.winner.phone}</p>
+                      {item.winner?.email ? (
+                        <a href={`mailto:${item.winner.email}`} className="hover:underline">
+                          {item.winner.email}
+                        </a>
+                      ) : (
+                        <span className="text-muted">No email address</span>
+                      )}
+                      {item.winner && contactNumber(item.winner) && (
+                        <p className="text-xs text-muted">{contactNumber(item.winner)}</p>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-forest">

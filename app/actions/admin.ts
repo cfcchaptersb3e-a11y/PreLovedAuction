@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireCapability } from "@/lib/auth";
+import { createPasswordResetToken, requireCapability } from "@/lib/auth";
+import { appUrl } from "@/lib/email";
 import { finalizeDueItems, slugify } from "@/lib/auction";
 import { parseMoneyToCents } from "@/lib/money";
 import type { EventStatus, ItemStatus, Role } from "@prisma/client";
@@ -353,4 +354,27 @@ export async function setUserRole(userId: string, role: Role): Promise<void> {
 
   await db.user.update({ where: { id: userId }, data: { role } });
   revalidatePath("/admin/people");
+}
+
+/**
+ * Hands an organizer a one-time link that sets a new password on somebody's
+ * account.
+ *
+ * Reset links normally arrive by email, which leaves anyone who signed up with
+ * only a mobile number with no way back into their own account. An organizer
+ * can read this one out, or send it by text — it expires in an hour and works
+ * once. It is never emailed from here: the organizer already has the person in
+ * front of them, or on the phone.
+ */
+export async function issuePasswordReset(userId: string): Promise<string> {
+  await requireCapability("people");
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true },
+  });
+  if (!user) throw new Error("That account no longer exists.");
+
+  const token = await createPasswordResetToken(user);
+  return appUrl(`/reset-password?token=${encodeURIComponent(token)}`);
 }
