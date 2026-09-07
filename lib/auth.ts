@@ -7,6 +7,9 @@ import { cache } from "react";
 import { db } from "@/lib/db";
 import type { User } from "@prisma/client";
 import { can, type Capability } from "@/lib/permissions";
+import { identify, normalizeEmail, normalizeMobile, type Identifier } from "@/lib/identity";
+
+export { normalizeEmail, normalizeMobile } from "@/lib/identity";
 
 // promisify loses scrypt's options overload, so name the shape we use.
 const scryptAsync = promisify(scrypt) as (
@@ -54,11 +57,8 @@ function readSessionValue(value: string | undefined): string | null {
   return userId;
 }
 
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
-export function isConfiguredAdmin(email: string): boolean {
+export function isConfiguredAdmin(email: string | null): boolean {
+  if (!email) return false;
   const list = (process.env.ADMIN_EMAILS ?? "")
     .split(",")
     .map((entry) => normalizeEmail(entry))
@@ -114,16 +114,32 @@ export type SignInResult =
   | { ok: true; user: User }
   | { ok: false; reason: "invalid" | "locked" | "no-password" };
 
+/** Finds the one account an email address or a mobile number belongs to. */
+export async function findByIdentifier(identifier: Identifier): Promise<User | null> {
+  if (identifier.kind === "email") {
+    return db.user.findUnique({ where: { email: identifier.value } });
+  }
+  // findFirst, not findUnique: the mobile column's uniqueness is a partial
+  // index rather than a Prisma constraint (see prisma/schema.prisma), and the
+  // oldest account wins if one ever slips past it.
+  return db.user.findFirst({
+    where: { mobile: identifier.value },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
 /**
- * Checks an email and password. Wrong email and wrong password are reported
- * identically, so the form cannot be used to discover who has an account.
+ * Checks a password against whichever identifier someone signed in with — an
+ * email address or a mobile number. An unknown identifier and a wrong password
+ * are reported identically, so the form cannot be used to discover who has an
+ * account.
  */
 export async function signInWithPassword(
-  email: string,
+  identifierRaw: string,
   password: string
 ): Promise<SignInResult> {
-  const address = normalizeEmail(email);
-  const user = await db.user.findUnique({ where: { email: address } });
+  const identifier = identify(identifierRaw);
+  const user = identifier ? await findByIdentifier(identifier) : null;
 
   if (!user) {
     // Spend comparable time so a missing account is not detectable by timing.
@@ -164,25 +180,46 @@ export async function signInWithPassword(
 
 export const LOCKOUT_MESSAGE = `Too many attempts. Please wait ${LOCKOUT_MINUTES} minutes and try again, or reset your password.`;
 
-/** Creates an account. Returns null if the address is already registered. */
-export async function createAccount(params: {
-  email: string;
+export type NewAccount = {
+  email?: string | null;
+  mobile?: string | null;
   password: string;
   name?: string | null;
   phone?: string | null;
-}): Promise<User | null> {
-  const address = normalizeEmail(params.email);
-  if (await db.user.findUnique({ where: { email: address } })) return null;
+};
 
-  return db.user.create({
+export type AccountResult =
+  | { ok: true; user: User }
+  | { ok: false; reason: "no-identifier" | "email-taken" | "mobile-taken" };
+
+/**
+ * Creates an account from an email address, a mobile number, or both. At least
+ * one is required, because it is what the person signs in with.
+ */
+export async function createAccount(params: NewAccount): Promise<AccountResult> {
+  const email = params.email ? normalizeEmail(params.email) : null;
+  const mobile = params.mobile ? normalizeMobile(params.mobile) : null;
+
+  if (!email && !mobile) return { ok: false, reason: "no-identifier" };
+
+  if (email && (await db.user.findUnique({ where: { email } }))) {
+    return { ok: false, reason: "email-taken" };
+  }
+  if (mobile && (await db.user.findFirst({ where: { mobile } }))) {
+    return { ok: false, reason: "mobile-taken" };
+  }
+
+  const user = await db.user.create({
     data: {
-      email: address,
+      email,
+      mobile,
       name: params.name?.trim() || null,
       phone: params.phone?.trim() || null,
       passwordHash: await hashPassword(params.password),
-      role: isConfiguredAdmin(address) ? "ADMIN" : "BIDDER",
+      role: isConfiguredAdmin(email) ? "ADMIN" : "BIDDER",
     },
   });
+  return { ok: true, user };
 }
 
 // ---------------------------------------------------------- password resets
@@ -190,19 +227,28 @@ export async function createAccount(params: {
 const RESET_TOKEN_MINUTES = 60;
 
 /**
- * Issues a single-use reset token. Only its SHA-256 hash is stored, so a leak
- * of the database does not hand anyone a working reset link.
+ * Issues a single-use reset token for an account. Only its SHA-256 hash is
+ * stored, so a leak of the database does not hand anyone a working reset link.
+ *
+ * Keyed by account rather than by address: somebody who signed up with only a
+ * mobile number still needs a way to be given a new password, and an organizer
+ * can hand them this link directly.
  */
-export async function createPasswordResetToken(email: string): Promise<string> {
-  const address = normalizeEmail(email);
+export async function createPasswordResetToken(user: {
+  id: string;
+  email: string | null;
+}): Promise<string> {
   const token = randomBytes(32).toString("base64url");
   const tokenHash = createHash("sha256").update(token).digest("hex");
 
-  // One live link per address keeps old ones from piling up.
-  await db.loginToken.deleteMany({ where: { email: address } });
+  // One live link per account keeps old ones from piling up.
+  await db.loginToken.deleteMany({ where: { userId: user.id } });
+  if (user.email) await db.loginToken.deleteMany({ where: { email: user.email } });
+
   await db.loginToken.create({
     data: {
-      email: address,
+      userId: user.id,
+      email: user.email,
       tokenHash,
       expiresAt: new Date(Date.now() + RESET_TOKEN_MINUTES * 60 * 1000),
     },
@@ -219,7 +265,12 @@ export async function consumePasswordResetToken(
   const record = await db.loginToken.findUnique({ where: { tokenHash } });
   if (!record || record.usedAt || record.expiresAt < new Date()) return null;
 
-  const user = await db.user.findUnique({ where: { email: record.email } });
+  // Links issued before tokens were keyed by account carry only an address.
+  const user = record.userId
+    ? await db.user.findUnique({ where: { id: record.userId } })
+    : record.email
+      ? await db.user.findUnique({ where: { email: record.email } })
+      : null;
   if (!user) return null;
 
   await db.loginToken.delete({ where: { id: record.id } });
@@ -238,9 +289,88 @@ export async function consumePasswordResetToken(
   });
 }
 
+// ------------------------------------------- reset help for mobile sign-ins
+
+/**
+ * Records that somebody who signs in with a mobile number wants a reset link
+ * sent to an address. Nothing is sent and nothing changes until an organizer
+ * approves it: the address is unverified, and on its own a number is not proof
+ * of anything.
+ *
+ * The same answer is given whether or not the number matches an account, so
+ * this cannot be used to find out who has one. The request is stored either
+ * way — an organizer can then tell somebody they mistyped their number rather
+ * than leaving them waiting for a link that was never coming.
+ */
+export async function requestResetHelp(params: {
+  mobile: string;
+  email: string;
+}): Promise<void> {
+  const mobile = normalizeMobile(params.mobile);
+  const email = normalizeEmail(params.email);
+  if (!mobile) return;
+
+  const user = await db.user.findFirst({ where: { mobile }, orderBy: { createdAt: "asc" } });
+
+  // One open request per number: asking twice should not give an organizer two
+  // things to read, and a later address supersedes an earlier one.
+  await db.passwordResetRequest.deleteMany({ where: { mobile, status: "PENDING" } });
+  await db.passwordResetRequest.create({
+    data: { mobile, email, userId: user?.id ?? null },
+  });
+}
+
+export type ResetApproval =
+  | { ok: true; user: User; token: string }
+  | { ok: false; reason: "gone" | "no-account" | "email-taken" };
+
+/**
+ * Approves a request: puts the address on the account so the person can be
+ * reached from now on, and issues the reset token to send there.
+ */
+export async function approveResetRequest(
+  requestId: string,
+  organizerId: string
+): Promise<ResetApproval> {
+  const request = await db.passwordResetRequest.findUnique({ where: { id: requestId } });
+  if (!request || request.status !== "PENDING") return { ok: false, reason: "gone" };
+  if (!request.userId) return { ok: false, reason: "no-account" };
+
+  const taken = await db.user.findUnique({ where: { email: request.email } });
+  if (taken && taken.id !== request.userId) return { ok: false, reason: "email-taken" };
+
+  const user = await db.user.update({
+    where: { id: request.userId },
+    data: { email: request.email },
+  });
+  const token = await createPasswordResetToken(user);
+
+  await db.passwordResetRequest.update({
+    where: { id: requestId },
+    data: { status: "APPROVED", resolvedAt: new Date(), resolvedBy: organizerId },
+  });
+
+  return { ok: true, user, token };
+}
+
+export async function dismissResetRequest(
+  requestId: string,
+  organizerId: string
+): Promise<void> {
+  await db.passwordResetRequest.updateMany({
+    where: { id: requestId, status: "PENDING" },
+    data: { status: "DISMISSED", resolvedAt: new Date(), resolvedBy: organizerId },
+  });
+}
+
+/** The account for an address, used only to decide whether to send a reset. */
+export async function accountForEmail(email: string): Promise<User | null> {
+  return db.user.findUnique({ where: { email: normalizeEmail(email) } });
+}
+
 /** True if the address has an account, used only to decide whether to email. */
 export async function accountExists(email: string): Promise<boolean> {
-  return Boolean(await db.user.findUnique({ where: { email: normalizeEmail(email) } }));
+  return Boolean(await accountForEmail(email));
 }
 
 export async function startSession(userId: string): Promise<void> {
@@ -260,7 +390,7 @@ export async function endSession(): Promise<void> {
   store.delete(SESSION_COOKIE);
 }
 
-/** The signed-in user, or null. Memoised for the lifetime of one request. */
+/** The signed-in user, or null. Memoized for the lifetime of one request. */
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   const store = await cookies();
   const userId = readSessionValue(store.get(SESSION_COOKIE)?.value);

@@ -5,23 +5,37 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
   LOCKOUT_MESSAGE,
-  accountExists,
+  accountForEmail,
   consumePasswordResetToken,
+  requestResetHelp,
   createAccount,
   createPasswordResetToken,
   endSession,
-  normalizeEmail,
   passwordProblem,
   requireUser,
   signInWithPassword,
   startSession,
 } from "@/lib/auth";
+import {
+  EMAIL_PATTERN,
+  MOBILE_FORMAT_HINT,
+  identify,
+  mobileProblem,
+  normalizeEmail,
+  normalizeMobile,
+} from "@/lib/identity";
 import { EmailError, sendPasswordResetLink, sendWelcomeEmail } from "@/lib/email";
 import { staffLandingPath } from "@/lib/permissions";
 
-export type FormState = { error?: string; message?: string };
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+export type FormState = {
+  error?: string;
+  message?: string;
+  /**
+   * Set when somebody asked to reset a password using a mobile number. The
+   * form then asks where to send the link, carrying the number back with it.
+   */
+  needsEmail?: string;
+};
 
 function field(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -30,14 +44,19 @@ function field(formData: FormData, key: string): string {
 // ------------------------------------------------------------------ sign in
 
 export async function signIn(_prev: FormState, formData: FormData): Promise<FormState> {
-  const email = normalizeEmail(field(formData, "email"));
+  const identifierRaw = field(formData, "identifier");
   const password = String(formData.get("password") ?? "");
 
-  if (!EMAIL_PATTERN.test(email) || !password) {
-    return { error: "Please enter your email address and password." };
+  if (!identifierRaw || !password) {
+    return { error: "Please enter your email address or mobile number, and your password." };
+  }
+  if (!identify(identifierRaw)) {
+    return {
+      error: `That doesn't look like an email address or a mobile number. Numbers go in as ${MOBILE_FORMAT_HINT}.`,
+    };
   }
 
-  const result = await signInWithPassword(email, password);
+  const result = await signInWithPassword(identifierRaw, password);
 
   if (!result.ok) {
     if (result.reason === "locked") return { error: LOCKOUT_MESSAGE };
@@ -47,8 +66,8 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
           "This account doesn't have a password yet. Use “Forgot your password?” below to set one.",
       };
     }
-    // Deliberately identical for a wrong address and a wrong password.
-    return { error: "That email address and password don't match." };
+    // Deliberately identical for an unknown account and a wrong password.
+    return { error: "Those sign-in details don't match. Please check and try again." };
   }
 
   await startSession(result.user.id);
@@ -58,13 +77,27 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
 // ------------------------------------------------------------------ sign up
 
 export async function signUp(_prev: FormState, formData: FormData): Promise<FormState> {
-  const email = normalizeEmail(field(formData, "email"));
+  const emailRaw = field(formData, "email");
+  const mobileRaw = field(formData, "mobile");
   const password = String(formData.get("password") ?? "");
   const name = field(formData, "name");
-  const phone = field(formData, "phone");
 
-  if (!EMAIL_PATTERN.test(email)) return { error: "Please enter a valid email address." };
   if (!name) return { error: "Please enter your name, so organizers know who you are." };
+
+  if (!emailRaw && !mobileRaw) {
+    return {
+      error: "Please give an email address or a mobile number — you'll sign in with it.",
+    };
+  }
+
+  const email = emailRaw ? normalizeEmail(emailRaw) : null;
+  if (email && !EMAIL_PATTERN.test(email)) {
+    return { error: "Please enter a valid email address." };
+  }
+
+  const numberProblem = mobileProblem(mobileRaw);
+  if (numberProblem) return { error: numberProblem };
+  const mobile = mobileRaw ? normalizeMobile(mobileRaw) : null;
 
   const problem = passwordProblem(password);
   if (problem) return { error: problem };
@@ -72,22 +105,33 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
     return { error: "The two passwords don't match." };
   }
 
-  const user = await createAccount({ email, password, name, phone });
-  if (!user) {
-    return {
-      error: "There's already an account with that email address. Try signing in instead.",
-    };
+  const result = await createAccount({ email, mobile, password, name });
+  if (!result.ok) {
+    if (result.reason === "email-taken") {
+      return {
+        error: "There's already an account with that email address. Try signing in instead.",
+      };
+    }
+    if (result.reason === "mobile-taken") {
+      return {
+        error: "There's already an account with that mobile number. Try signing in instead.",
+      };
+    }
+    return { error: "Please give an email address or a mobile number." };
   }
 
-  // A welcome email is a nicety; never block sign-up on it.
-  try {
-    await sendWelcomeEmail({ to: user.email, name: user.name });
-  } catch (error) {
-    console.error("Welcome email failed:", error);
+  // A welcome email is a nicety; never block sign-up on it, and an account
+  // with only a mobile number has nowhere to send one.
+  if (result.user.email) {
+    try {
+      await sendWelcomeEmail({ to: result.user.email, name: result.user.name });
+    } catch (error) {
+      console.error("Welcome email failed:", error);
+    }
   }
 
-  await startSession(user.id);
-  redirect(staffLandingPath(user.role));
+  await startSession(result.user.id);
+  redirect(staffLandingPath(result.user.role));
 }
 
 // ----------------------------------------------------------- password reset
@@ -96,7 +140,31 @@ export async function requestPasswordReset(
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
-  const email = normalizeEmail(field(formData, "email"));
+  const raw = field(formData, "email");
+
+  // Somebody who signs in with a number has nowhere for a link to go, so ask
+  // where to send one. An organizer approves it before anything is sent: the
+  // address is unverified, and a number alone proves nothing.
+  const asMobile = !raw.includes("@") ? normalizeMobile(raw) : null;
+  if (asMobile) {
+    const sendTo = field(formData, "sendTo");
+    if (!sendTo) return { needsEmail: asMobile };
+
+    if (!EMAIL_PATTERN.test(normalizeEmail(sendTo))) {
+      return { needsEmail: asMobile, error: "Please enter a valid email address." };
+    }
+
+    await requestResetHelp({ mobile: asMobile, email: sendTo });
+
+    // The same answer whether or not that number has an account.
+    return {
+      message: `Thanks — a chapter organizer will check this and send a link to ${normalizeEmail(
+        sendTo
+      )}. It isn't automatic, so give them a little time.`,
+    };
+  }
+
+  const email = normalizeEmail(raw);
   if (!EMAIL_PATTERN.test(email)) return { error: "Please enter a valid email address." };
 
   // Always the same answer, so this can't be used to discover who has an account.
@@ -104,10 +172,11 @@ export async function requestPasswordReset(
     message: `If ${email} has an account, we've sent it a link to set a new password. It expires in an hour.`,
   };
 
-  if (!(await accountExists(email))) return sameAnswer;
+  const account = await accountForEmail(email);
+  if (!account) return sameAnswer;
 
   try {
-    const token = await createPasswordResetToken(email);
+    const token = await createPasswordResetToken(account);
     await sendPasswordResetLink(email, token);
   } catch (error) {
     console.error("Password reset email failed:", error);
@@ -156,14 +225,48 @@ export async function signOut(): Promise<void> {
 export async function updateProfile(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser();
   const name = field(formData, "name");
-  const phone = field(formData, "phone");
+  const emailRaw = field(formData, "email");
+  const mobileRaw = field(formData, "mobile");
 
   if (name.length > 80) return { error: "That name is a bit too long." };
-  if (phone.length > 40) return { error: "That contact number is a bit too long." };
+
+  const email = emailRaw ? normalizeEmail(emailRaw) : null;
+  if (email && !EMAIL_PATTERN.test(email)) {
+    return { error: "Please enter a valid email address." };
+  }
+
+  const numberProblem = mobileProblem(mobileRaw);
+  if (numberProblem) return { error: numberProblem };
+  const mobile = mobileRaw ? normalizeMobile(mobileRaw) : null;
+
+  // Removing both would lock the person out of their own account.
+  if (!email && !mobile) {
+    return { error: "Keep at least one of these — it's what you sign in with." };
+  }
+
+  if (email && email !== user.email) {
+    const taken = await db.user.findUnique({ where: { email } });
+    if (taken && taken.id !== user.id) {
+      return { error: "Another account already uses that email address." };
+    }
+  }
+  if (mobile && mobile !== user.mobile) {
+    const taken = await db.user.findFirst({ where: { mobile } });
+    if (taken && taken.id !== user.id) {
+      return { error: "Another account already uses that mobile number." };
+    }
+  }
 
   await db.user.update({
     where: { id: user.id },
-    data: { name: name || null, phone: phone || null },
+    data: {
+      name: name || null,
+      email,
+      mobile,
+      // The old free-text contact number is replaced the moment a real mobile
+      // number is on the account, so organizers only ever see one.
+      ...(mobile ? { phone: null } : {}),
+    },
   });
   revalidatePath("/account");
   return { message: "Your details have been saved." };

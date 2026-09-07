@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireCapability } from "@/lib/auth";
+import { contactNumber } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
     csvCell(item.donorName),
     csvCell(item.winner?.name),
     csvCell(item.winner?.email),
-    csvCell(item.winner?.phone),
+    csvCell(item.winner ? contactNumber(item.winner) : null),
     csvCell(((item.winningBidCents ?? 0) / 100).toFixed(2)),
     csvCell(item.paymentStatus === "PAID" ? "Paid" : "Unpaid"),
     csvCell(item.handoverStatus === "COLLECTED" ? "Collected" : "Pending"),

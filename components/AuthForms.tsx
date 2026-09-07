@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { MOBILE_FORMAT_HINT, formatMobile } from "@/lib/identity";
 import {
   requestPasswordReset,
   resetPassword,
@@ -44,24 +45,28 @@ function Problem({ state }: { state: FormState }) {
 
 export function SignInForm() {
   const [state, action] = useActionState<FormState, FormData>(signIn, {});
-  const email = useField();
+  const identifier = useField();
   const password = useField();
 
   return (
     <form action={action} className="space-y-4">
       <div>
-        <label className="label" htmlFor="email">
-          Email address
+        <label className="label" htmlFor="identifier">
+          Email address or mobile number
         </label>
         <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
+          id="identifier"
+          name="identifier"
+          type="text"
+          inputMode="email"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
           required
           className="field"
-          {...email}
+          {...identifier}
         />
+        <p className="hint">Whichever you signed up with.</p>
       </div>
       <div>
         <label className="label" htmlFor="password">
@@ -95,9 +100,13 @@ export function SignUpForm() {
   const [state, action] = useActionState<FormState, FormData>(signUp, {});
   const name = useField();
   const email = useField();
-  const phone = useField();
+  const mobile = useField();
   const password = useField();
   const confirm = useField();
+
+  // Only an email address can carry an outbid alert or a winner's notice, so
+  // say so before somebody signs up with a number and wonders why it is quiet.
+  const numberOnly = mobile.value.trim() !== "" && email.value.trim() === "";
 
   return (
     <form action={action} className="space-y-4">
@@ -108,27 +117,49 @@ export function SignUpForm() {
         <input id="name" name="name" autoComplete="name" required className="field" {...name} />
         <p className="hint">Other bidders see your first name and last initial.</p>
       </div>
-      <div>
-        <label className="label" htmlFor="email">
-          Email address
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          className="field"
-          {...email}
-        />
-      </div>
-      <div>
-        <label className="label" htmlFor="phone">
-          Contact number <span className="font-normal text-muted">(optional)</span>
-        </label>
-        <input id="phone" name="phone" autoComplete="tel" className="field" {...phone} />
-        <p className="hint">So organizers can reach you about payment and pickup if you win.</p>
-      </div>
+      <fieldset className="rounded-xl border border-line bg-parchment/40 p-4">
+        <legend className="px-1 text-sm font-semibold">How you'll sign in</legend>
+        <p className="hint mb-3 mt-1">
+          Give an email address, a mobile number, or both. Either one signs you in.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label className="label" htmlFor="email">
+              Email address
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              className="field"
+              {...email}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="mobile">
+              Mobile number
+            </label>
+            <input
+              id="mobile"
+              name="mobile"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
+              placeholder={MOBILE_FORMAT_HINT}
+              className="field"
+              {...mobile}
+            />
+            <p className="hint">11 digits starting with 09. Organizers use it to reach you.</p>
+          </div>
+        </div>
+        {numberOnly && (
+          <p className="mt-3 rounded-lg bg-clay-light px-3 py-2 text-sm text-ink/80">
+            Outbid alerts and your winner&rsquo;s notice are sent by email. With a number only,
+            you&rsquo;ll need to check the auction yourself — you can add an address later.
+          </p>
+        )}
+      </fieldset>
       <div className="grid gap-4 [&>*]:min-w-0 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="password">
@@ -177,16 +208,61 @@ export function SignUpForm() {
 export function ForgotPasswordForm() {
   const [state, action] = useActionState<FormState, FormData>(requestPasswordReset, {});
   const email = useField();
+  const sendTo = useField();
 
   if (state.message) {
+    const waiting = state.message.startsWith("Thanks");
     return (
       <div className="rounded-xl bg-forest-light p-5 text-center">
         <p className="text-3xl" aria-hidden>
-          ✉️
+          {waiting ? "🕓" : "✉️"}
         </p>
-        <p className="mt-2 font-semibold text-forest">Check your inbox</p>
+        <p className="mt-2 font-semibold text-forest">
+          {waiting ? "Asked an organizer" : "Check your inbox"}
+        </p>
         <p className="mt-1 text-sm text-forest/80">{state.message}</p>
       </div>
+    );
+  }
+
+  // Second step: they gave a mobile number, so there is no inbox to write to
+  // until they say which one to use.
+  if (state.needsEmail) {
+    return (
+      <form action={action} className="space-y-4">
+        <input type="hidden" name="email" value={state.needsEmail} />
+        <div className="rounded-xl border border-line bg-parchment/50 p-4 text-sm">
+          <p>
+            You sign in with <span className="font-semibold">{formatMobile(state.needsEmail)}</span>
+            , and a reset link has to go to an email address.
+          </p>
+          <p className="mt-2 text-muted">
+            Give one below and a chapter organizer will check it before the link is sent. It will
+            also become the address for your outbid alerts.
+          </p>
+        </div>
+        <div>
+          <label className="label" htmlFor="sendTo">
+            Send the link to
+          </label>
+          <input
+            id="sendTo"
+            name="sendTo"
+            type="email"
+            autoComplete="email"
+            required
+            className="field"
+            {...sendTo}
+          />
+        </div>
+        <Submit label="Ask an organizer" pendingLabel="Sending…" />
+        <Problem state={state} />
+        <p className="pt-1 text-sm">
+          <Link href="/login" className="text-muted hover:text-ink hover:underline">
+            Back to sign in
+          </Link>
+        </p>
+      </form>
     );
   }
 
@@ -194,13 +270,19 @@ export function ForgotPasswordForm() {
     <form action={action} className="space-y-4">
       <div>
         <label className="label" htmlFor="email">
-          Email address
+          Email address or mobile number
         </label>
+        {/* Deliberately not type="email": somebody who signs in with a mobile
+            number will try it here, and the browser's own validation would
+            block the form before it could ask where to send the link. */}
         <input
           id="email"
           name="email"
-          type="email"
+          type="text"
+          inputMode="email"
           autoComplete="email"
+          autoCapitalize="none"
+          autoCorrect="off"
           required
           className="field"
           {...email}
@@ -208,6 +290,9 @@ export function ForgotPasswordForm() {
       </div>
       <Submit label="Email me a reset link" pendingLabel="Sending…" />
       <Problem state={state} />
+      <p className="hint">
+        Sign in with a mobile number? Enter it here and we&rsquo;ll ask where to send the link.
+      </p>
       <p className="pt-1 text-sm">
         <Link href="/login" className="text-muted hover:text-ink hover:underline">
           Back to sign in

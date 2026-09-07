@@ -15,8 +15,8 @@ export default async function SignUpPage() {
       <div className="card p-6 md:p-8">
         <h1 className="text-2xl font-bold">Create your account</h1>
         <p className="mt-2 text-sm text-muted">
-          You only need an account to place bids — browsing is open to everyone. We use your email
-          to tell you if you&rsquo;ve been outbid or have won.
+          You only need an account to place bids — browsing is open to everyone. Sign up with an
+          email address, a mobile number, or both.
         </p>
         <div className="mt-6">
           <SignUpForm />

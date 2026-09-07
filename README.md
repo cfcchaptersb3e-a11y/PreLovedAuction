@@ -15,9 +15,10 @@ far" figure starts back at zero and the previous auction is kept as a record.
 
 **For bidders**
 - Browse live items, search and filter by category, sort by what's ending soonest
-- Sign in with an email address and password
+- Sign in with an email address **or** a mobile number, plus a password
 - Place bids, with a clear minimum and one-tap suggested amounts
 - Get an email the moment someone outbids them, and another if they win
+  (an account with only a mobile number has nowhere to send these — see **Signing in**)
 - Star items to a personal watchlist
 - See every bid they've placed and everything they've won, with payment details
 
@@ -183,10 +184,49 @@ auction, but it does mean such a change needs handling deliberately: make the
 change in two steps (add the new shape, migrate the data, then remove the old),
 or apply it by hand with `npm run db:push` against the production database.
 
+### Signing in
+
+An account needs an email address, a mobile number, or both, and either one
+signs the person in with their password. Numbers are Philippine mobiles, stored
+as `09XXXXXXXXX`; the same number typed as `0917 123 4567` or
+`+63 917 123 4567` reaches the same account, and no two accounts can share one.
+
+The trade-off is worth being clear about, because it is the reason the sign-up
+form says so too: **outbid alerts, winner notices and password-reset links all
+travel by email.** Somebody who signs up with a number alone can bid perfectly
+well, but nothing will chase them — they have to look. They can add an address
+later from their account page.
+
+That leaves the question of what a mobile-only member does when they forget
+their password, since there is no inbox for a link. They enter their number on
+the forgot-password page and are asked where to send one. Nothing is sent yet:
+the request appears at the top of **People**, and an organizer approves it
+first. This is the security of the whole thing — a mobile number typed into a
+form is no proof that the person typing it owns the account, so without that
+step anyone could put a member's number with their own address and take the
+account. Approving saves the address to the account (so outbid alerts reach
+them from then on) and emails the link.
+
+The same confirmation appears whether or not the number matches an account, so
+the form cannot be used to find out who has one. Requests for numbers that
+match nothing are still recorded and shown to organizers with a warning, so
+somebody who mistyped their number can be told rather than left waiting.
+
+Organizers can also start a reset themselves from **People** → **Reset
+password**, which puts a single-use link on screen to read out or text over.
+Both kinds of link expire in an hour and work once.
+
+Mobile numbers are unique through a partial index created by
+`scripts/ensure-indexes.ts`, not through `@unique` in the Prisma schema. Adding
+a unique constraint the Prisma way makes `prisma db push` demand
+`--accept-data-loss`, and putting that flag in the deploy would wave through
+every future destructive change as well — including the ones it exists to
+catch. The deploy runs the index step immediately after the push instead.
+
 ### Email
 
 Email is optional in the sense that the app runs without it — messages are
-written to the server log instead — but for a real auction you need it, because
+written to the server log instead — but for a real auction you want it, because
 it carries the outbid and winner notifications, and the password-reset links.
 The organizer tools show a warning until it is set up.
 
@@ -267,7 +307,7 @@ the two things a local run can't check.
 ## How it's built
 
 Next.js (App Router) with server actions, Prisma and PostgreSQL, Tailwind CSS,
-and passwordless email sign-in. No payment processor — winners pay the chapter
+and password sign-in by email address or mobile number. No payment processor — winners pay the chapter
 directly by whatever means you put in the payment instructions, and organizers
 mark each one paid.
 
@@ -282,9 +322,11 @@ lib/
   auth.ts            passwords (scrypt), lockout, resets, session cookies
   permissions.ts     what each role may do — read by both guards and the UI
   email.ts           Resend, or the server log when no key is set
-  money.ts           integer minor units — no floating point in bid maths
+  identity.ts        what counts as an address or a number, and how each is shown
+  money.ts           integer minor units — no floating point in bid math
 prisma/schema.prisma the data model
-scripts/check-rules.ts  auction-rule checks
+scripts/check-rules.ts     auction-rule checks
+scripts/ensure-indexes.ts  the one index Prisma does not declare
 ```
 
 Money is stored in integer centavos throughout, so bid arithmetic is exact.

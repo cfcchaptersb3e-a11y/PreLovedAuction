@@ -3,7 +3,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { requirePageCapability } from "@/lib/page-guards";
 import { formatMoney } from "@/lib/money";
 import { RoleSelect } from "@/components/admin/RoleSelect";
+import { ResetPasswordButton } from "@/components/admin/ResetPasswordButton";
+import { ResetRequests } from "@/components/admin/ResetRequests";
 import { ASSIGNABLE_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/lib/permissions";
+import { accountHandle, contactNumber, normalizeMobile } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +21,26 @@ export default async function PeoplePage({
   const query = (params.q ?? "").trim();
   const me = await getCurrentUser();
 
+  // A number typed with spaces still has to find the account it belongs to.
+  // Falling back to the query itself keeps a name search from matching every
+  // number, which an empty "contains" would.
+  const digits = query.replace(/\D/g, "");
+  const mobileQuery = normalizeMobile(query) ?? (digits || query);
+
+  const pendingRequests = await db.passwordResetRequest.findMany({
+    where: { status: "PENDING" },
+    orderBy: { createdAt: "asc" },
+    take: 50,
+    include: { user: { select: { name: true } } },
+  });
+
   const users = await db.user.findMany({
     where: query
       ? {
           OR: [
             { email: { contains: query, mode: "insensitive" } },
             { name: { contains: query, mode: "insensitive" } },
+            { mobile: { contains: mobileQuery } },
           ],
         }
       : undefined,
@@ -37,6 +54,19 @@ export default async function PeoplePage({
 
   return (
     <div className="space-y-5">
+      {/* First thing on the page: somebody who cannot get into their account is
+          waiting on an organizer, and that outranks the standing explainer. */}
+      <ResetRequests
+        requests={pendingRequests.map((request) => ({
+          id: request.id,
+          mobile: request.mobile,
+          email: request.email,
+          createdAt: request.createdAt.toISOString(),
+          personName: request.user?.name ?? null,
+          hasAccount: Boolean(request.userId),
+        }))}
+      />
+
       <div>
         <h2 className="text-lg font-bold">People</h2>
         <p className="text-sm text-muted">
@@ -57,7 +87,7 @@ export default async function PeoplePage({
       <form className="card flex flex-wrap items-end gap-3 p-4" action="/admin/people">
         <div className="min-w-[14rem] flex-1">
           <label className="label" htmlFor="q">
-            Search by name or email
+            Search by name, email or mobile
           </label>
           <input id="q" name="q" defaultValue={query} className="field" />
         </div>
@@ -82,16 +112,31 @@ export default async function PeoplePage({
             <div key={user.id} className="card space-y-3 p-4">
               <div>
                 <p className="font-semibold">{user.name || "—"}</p>
-                <a href={`mailto:${user.email}`} className="break-all text-sm text-muted hover:underline">
-                  {user.email}
-                </a>
-                {user.phone && <p className="text-sm text-muted">{user.phone}</p>}
+                {user.email ? (
+                  <a
+                    href={`mailto:${user.email}`}
+                    className="break-all text-sm text-muted hover:underline"
+                  >
+                    {user.email}
+                  </a>
+                ) : (
+                  <p className="text-sm text-muted">No email address</p>
+                )}
+                {contactNumber(user) && (
+                  <a
+                    href={`tel:${user.mobile ?? user.phone}`}
+                    className="block text-sm text-muted hover:underline"
+                  >
+                    {contactNumber(user)}
+                  </a>
+                )}
               </div>
               <p className="text-xs text-muted">
                 {user._count.bids} {user._count.bids === 1 ? "bid" : "bids"}
                 {wonTotal > 0 && ` · ${formatMoney(wonTotal, currency)} won`}
               </p>
               <RoleSelect userId={user.id} role={user.role} isSelf={user.id === me?.id} />
+              <ResetPasswordButton userId={user.id} name={user.name || accountHandle(user)} />
             </div>
           );
         })}
@@ -120,17 +165,29 @@ export default async function PeoplePage({
                 <tr key={user.id}>
                   <td className="px-4 py-3 font-medium">{user.name || "—"}</td>
                   <td className="px-4 py-3">
-                    <a href={`mailto:${user.email}`} className="hover:underline">
-                      {user.email}
-                    </a>
-                    {user.phone && <p className="text-xs text-muted">{user.phone}</p>}
+                    {user.email ? (
+                      <a href={`mailto:${user.email}`} className="hover:underline">
+                        {user.email}
+                      </a>
+                    ) : (
+                      <span className="text-muted">No email address</span>
+                    )}
+                    {contactNumber(user) && (
+                      <p className="text-xs text-muted">{contactNumber(user)}</p>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right">{user._count.bids}</td>
                   <td className="px-4 py-3 text-right">
                     {wonTotal > 0 ? formatMoney(wonTotal, currency) : "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <RoleSelect userId={user.id} role={user.role} isSelf={user.id === me?.id} />
+                    <div className="space-y-2">
+                      <RoleSelect userId={user.id} role={user.role} isSelf={user.id === me?.id} />
+                      <ResetPasswordButton
+                        userId={user.id}
+                        name={user.name || accountHandle(user)}
+                      />
+                    </div>
                   </td>
                 </tr>
               );

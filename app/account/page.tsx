@@ -6,6 +6,7 @@ import { finalizeDueItems } from "@/lib/auction";
 import { formatMoney } from "@/lib/money";
 import { timeLeft } from "@/lib/time";
 import { ProfileForm } from "@/components/ProfileForm";
+import { accountHandle } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "My bids — CFC SB3E Auction" };
@@ -58,7 +59,7 @@ export default async function AccountPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold">My bids</h1>
-        <p className="mt-1 text-muted">{user.email}</p>
+        <p className="mt-1 text-muted">{accountHandle(user)}</p>
       </div>
 
       {wins.length > 0 && (
@@ -152,9 +153,15 @@ export default async function AccountPage() {
       <section className="card p-5">
         <h2 className="text-lg font-bold">Your details</h2>
         <p className="mb-4 mt-1 text-sm text-muted">
-          Adding your name and number helps organizers arrange payment and pickup if you win.
+          These are how you sign in and how organizers reach you about payment and pickup.
+          An email address is also where outbid alerts and your winner&rsquo;s notice go.
         </p>
-        <ProfileForm name={user.name} phone={user.phone} />
+        <ProfileForm
+          name={user.name}
+          email={user.email}
+          mobile={user.mobile}
+          phone={user.phone}
+        />
       </section>
     </div>
   );

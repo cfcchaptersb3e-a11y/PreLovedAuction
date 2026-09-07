@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireCapability } from "@/lib/auth";
+import {
+  approveResetRequest,
+  createPasswordResetToken,
+  dismissResetRequest,
+  requireCapability,
+} from "@/lib/auth";
+import { appUrl, sendPasswordResetLink } from "@/lib/email";
 import { finalizeDueItems, slugify } from "@/lib/auction";
 import { parseMoneyToCents } from "@/lib/money";
 import type { EventStatus, ItemStatus, Role } from "@prisma/client";
@@ -353,4 +359,68 @@ export async function setUserRole(userId: string, role: Role): Promise<void> {
 
   await db.user.update({ where: { id: userId }, data: { role } });
   revalidatePath("/admin/people");
+}
+
+/**
+ * Hands an organizer a one-time link that sets a new password on somebody's
+ * account.
+ *
+ * Reset links normally arrive by email, which leaves anyone who signed up with
+ * only a mobile number with no way back into their own account. An organizer
+ * can read this one out, or send it by text — it expires in an hour and works
+ * once. It is never emailed from here: the organizer already has the person in
+ * front of them, or on the phone.
+ */
+export async function issuePasswordReset(userId: string): Promise<string> {
+  await requireCapability("people");
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true },
+  });
+  if (!user) throw new Error("That account no longer exists.");
+
+  const token = await createPasswordResetToken(user);
+  return appUrl(`/reset-password?token=${encodeURIComponent(token)}`);
+}
+
+/**
+ * Approves a request from somebody who signs in with a mobile number and has
+ * no inbox for a reset link. The address they gave is saved to their account
+ * and the link is emailed there.
+ *
+ * An organizer sees the number and the address side by side before doing this,
+ * which is the whole point: on its own, a mobile number typed into a form is
+ * no proof that the person typing it owns the account.
+ */
+export async function approveResetHelp(requestId: string): Promise<string> {
+  const organizer = await requireCapability("people");
+
+  const result = await approveResetRequest(requestId, organizer.id);
+  if (!result.ok) {
+    if (result.reason === "no-account")
+      throw new Error("No account uses that number, so there is nothing to reset.");
+    if (result.reason === "email-taken")
+      throw new Error("Another account already uses that email address.");
+    throw new Error("That request has already been dealt with.");
+  }
+
+  try {
+    await sendPasswordResetLink(result.user.email!, result.token);
+  } catch (error) {
+    console.error("Approved reset link failed to send:", error);
+    throw new Error(
+      "The address was saved to their account, but the email didn't send. Use Reset password on their row to get a link you can pass on."
+    );
+  }
+
+  // Deliberately no revalidatePath: re-rendering the list here would unmount
+  // the row before the organizer has read what happened to it. The next visit
+  // to the page picks up the change.
+  return result.user.email!;
+}
+
+export async function dismissResetHelp(requestId: string): Promise<void> {
+  const organizer = await requireCapability("people");
+  await dismissResetRequest(requestId, organizer.id);
 }

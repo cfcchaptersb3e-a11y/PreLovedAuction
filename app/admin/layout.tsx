@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { ROLE_LABELS, can, isStaff } from "@/lib/permissions";
 import { emailStatus } from "@/lib/email";
+import { accountHandle } from "@/lib/identity";
 
 const TABS = [
   { href: "/admin", label: "Auctions", capability: "items" as const },
@@ -26,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="mr-auto">
           <h1 className="text-xl font-bold">Organizer tools</h1>
           <p className="text-sm text-muted">
-            Signed in as {user.email} ·{" "}
+            Signed in as {accountHandle(user)} ·{" "}
             <span className="font-medium text-ink">{ROLE_LABELS[user.role]}</span>
           </p>
         </div>

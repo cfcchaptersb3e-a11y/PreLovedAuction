@@ -125,8 +125,9 @@ export async function sellLot(itemId: string): Promise<void> {
     db.auctionEvent.update({ where: { id: item.eventId }, data: { currentLotId: null } }),
   ]);
 
-  // Never let a mail problem stop the auctioneer moving on.
-  if (top.user) {
+  // Never let a mail problem stop the auctioneer moving on, and an account
+  // with only a mobile number has no address to write to.
+  if (top.user?.email) {
     try {
       await sendWinnerEmail({
         to: top.user.email,

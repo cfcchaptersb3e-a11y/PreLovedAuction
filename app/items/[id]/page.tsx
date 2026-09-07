@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { finalizeDueItems, minimumBidCents } from "@/lib/auction";
 import { formatMoney } from "@/lib/money";
 import { timeLeft } from "@/lib/time";
+import { bidderName } from "@/lib/identity";
 import { BidForm } from "@/components/BidForm";
 import { WatchButton } from "@/components/WatchButton";
 import { Gallery } from "@/components/Gallery";
@@ -24,16 +25,6 @@ export async function generateMetadata({
   return { title: item ? `${item.title} — CFC SB3E Auction` : "Item not found" };
 }
 
-/** Bidders see each other by first name and last initial, never by email. */
-function displayName(user: { name: string | null; email: string }): string {
-  if (user.name) {
-    const parts = user.name.trim().split(/\s+/);
-    return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : parts[0];
-  }
-  const handle = user.email.split("@")[0];
-  return `${handle.slice(0, 2)}${"•".repeat(Math.max(3, handle.length - 2))}`;
-}
-
 export default async function ItemPage({ params }: { params: Promise<{ id: string }> }) {
   await finalizeDueItems();
 
@@ -47,7 +38,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
         bids: {
           orderBy: [{ amountCents: "desc" }, { createdAt: "asc" }],
           take: 15,
-          include: { user: { select: { id: true, name: true, email: true } } },
+          include: { user: { select: { id: true, name: true, email: true, mobile: true } } },
         },
       },
     }),
@@ -232,7 +223,7 @@ export default async function ItemPage({ params }: { params: Promise<{ id: strin
                         {bid.user
                           ? bid.user.id === user?.id
                             ? "You"
-                            : displayName(bid.user)
+                            : bidderName(bid.user)
                           : (bid.bidderLabel ?? "In the room")}
                       </span>
                     </span>

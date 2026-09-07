@@ -229,9 +229,9 @@ async function closeItem(
 
   if (updated.count === 0 || !sold) return null;
   void event;
-  // A room winner without an account cannot be emailed; the winners report
-  // carries their label instead.
-  if (!topBid!.user) return null;
+  // A room winner without an account, or a bidder who signed up with only a
+  // mobile number, cannot be emailed; the winners report carries them instead.
+  if (!topBid!.user?.email) return null;
   return { email: topBid!.user.email, amountCents: topBid!.amountCents };
 }
 
