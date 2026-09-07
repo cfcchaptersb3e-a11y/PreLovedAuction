@@ -81,6 +81,18 @@ export function emailStatus(): {
   return { provider: which, configured: which !== "none", from, warning };
 }
 
+/**
+ * Warns organizers when the nightly closing job cannot run, which happens when
+ * CRON_SECRET is missing from the deployment. Items still close whenever
+ * somebody loads a page, so this is a backstop being down rather than an
+ * emergency — but silently missing is exactly how a backstop stops being one.
+ */
+export function cronWarning(): string | null {
+  if (process.env.NODE_ENV !== "production") return null;
+  if (process.env.CRON_SECRET) return null;
+  return "CRON_SECRET is not set, so the nightly job that closes finished items can't run. Items still close whenever anyone opens a page, so nothing is stuck — but set CRON_SECRET in the deployment settings to restore the backstop.";
+}
+
 export function appUrl(path = "/"): string {
   const base = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;

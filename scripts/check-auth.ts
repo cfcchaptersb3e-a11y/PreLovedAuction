@@ -63,10 +63,17 @@ async function main() {
   // --- lockout ---
   for (let i = 0; i < 7; i++) await signInWithPassword(email, "bad");
   const eighth = await signInWithPassword(email, "bad");
-  check("locks out after repeated failures", !eighth.ok && eighth.reason === "locked");
+  const lockedRow = await db.user.findUnique({ where: { email } });
+  check("locks out after repeated failures",
+    Boolean(lockedRow?.lockedUntil && lockedRow.lockedUntil > new Date()));
+  check("a wrong password never says an account is locked",
+    !eighth.ok && eighth.reason === "invalid");
   const lockedOutEvenIfRight = await signInWithPassword(email, "auction2026");
   check("lockout holds even with the right password",
     !lockedOutEvenIfRight.ok && lockedOutEvenIfRight.reason === "locked");
+  const ghostWhileLocked = await signInWithPassword(`ghost-${suffix}@example.com`, "bad");
+  check("a locked account is indistinguishable from no account at all",
+    !ghostWhileLocked.ok && !eighth.ok && ghostWhileLocked.reason === eighth.reason);
 
   await db.user.update({ where: { email }, data: { failedLogins: 0, lockedUntil: null } });
   check("unlock restores access", (await signInWithPassword(email, "auction2026")).ok);
@@ -103,12 +110,28 @@ async function main() {
   const legacyEmail = `legacy-${suffix}@example.com`;
   const legacyUser = await db.user.create({ data: { email: legacyEmail, name: "Old Account" } });
   const legacy = await signInWithPassword(legacyEmail, "anything");
-  check("an account with no password is told to reset",
-    !legacy.ok && legacy.reason === "no-password");
+  const strangerAnswer = await signInWithPassword(`nobody-${suffix}@example.com`, "anything");
+  check("an account with no password answers like any other failure",
+    !legacy.ok && legacy.reason === "invalid");
+  check("which is the same answer a stranger gets",
+    !strangerAnswer.ok && !legacy.ok && legacy.reason === strangerAnswer.reason);
   const lt = await createPasswordResetToken(legacyUser);
   await consumePasswordResetToken(lt, "nowihaveone");
   check("and can set one through the reset flow",
     (await signInWithPassword(legacyEmail, "nowihaveone")).ok);
+
+  // --- a password change ends sessions opened before it --------------------
+  const beforeReset = await db.user.findUnique({ where: { email } });
+  const stamp = beforeReset!.sessionsValidFrom.getTime();
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const sessionToken = await createPasswordResetToken(beforeReset!);
+  await consumePasswordResetToken(sessionToken, "evicted12345");
+  const afterReset = await db.user.findUnique({ where: { email } });
+  check("a password reset moves the session cut-off forward",
+    afterReset!.sessionsValidFrom.getTime() > stamp);
+  check("a session issued before it would now be refused",
+    stamp < afterReset!.sessionsValidFrom.getTime());
+
 
   check("accountExists is case-insensitive", await accountExists(email.toUpperCase()));
   check("accountExists is false for strangers", !(await accountExists(`nobody-${suffix}@example.com`)));
@@ -213,6 +236,30 @@ async function main() {
   check("dismissing closes it", dismissed?.status === "DISMISSED");
   check("and it cannot then be approved",
     !(await approveResetRequest(toDismiss!.id, "organizer")).ok);
+
+  // --- the queue an unsigned-in visitor can write to has a ceiling ---------
+  await db.passwordResetRequest.deleteMany({ where: { mobile: { startsWith: "0966" } } });
+  for (let i = 0; i < 45; i++) {
+    await requestResetHelp({ mobile: `0966000${String(i).padStart(4, "0")}`, email: helpEmail });
+  }
+  const flooded = await db.passwordResetRequest.count({ where: { status: "PENDING" } });
+  check("unattached requests stop at the ceiling", flooded <= 40, `${flooded} pending`);
+
+  // A real member must still get through a queue somebody else has flooded.
+  await requestResetHelp({ mobile, email: `stillworks-${suffix}@example.com` });
+  const realOne = await db.passwordResetRequest.findFirst({
+    where: { mobile, status: "PENDING" },
+  });
+  check("a request that matches an account is never dropped", Boolean(realOne));
+
+  await requestResetHelp({ mobile, email: `${"x".repeat(300)}@example.com` });
+  const stillOld = await db.passwordResetRequest.findFirst({
+    where: { mobile, status: "PENDING" },
+  });
+  check("an absurdly long address is refused, leaving the earlier request",
+    stillOld?.email === `stillworks-${suffix}@example.com`);
+
+  await db.passwordResetRequest.deleteMany({ where: { mobile: { startsWith: "0966" } } });
 
   const both = await createAccount({
     email: `both-${suffix}@example.com`, mobile: `0918${String(suffix).slice(-7)}`,

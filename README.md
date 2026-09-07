@@ -330,7 +330,28 @@ scripts/ensure-indexes.ts  the one index Prisma does not declare
 ```
 
 Money is stored in integer centavos throughout, so bid arithmetic is exact.
-Passwords are hashed with scrypt and never stored in the clear, repeated failed
-sign-ins lock an account for 15 minutes, and password-reset tokens are stored
-only as SHA-256 hashes, so a database leak hands nobody a usable password or a
-working reset link.
+Passwords are hashed with scrypt and never stored in the clear, and
+password-reset tokens are stored only as SHA-256 hashes, so a database leak
+hands nobody a usable password or a working reset link.
+
+A few more deliberate choices around signing in:
+
+- **A password change ends sessions opened before it.** Each session cookie
+  carries the moment it was issued, checked against the account on every
+  request. Resetting a password is what you do when you think somebody else is
+  in your account, so it has to actually put them out.
+- **Changing what you sign in with needs the current password.** An email
+  address or mobile number is how you get back in, so moving one is the edit
+  worth proving ownership for. Changing a name is not.
+- **Repeated failures lock an account for 15 minutes, but a wrong password is
+  never told about it.** The lockout is only mentioned to somebody who gives
+  the right password — otherwise eight wrong guesses would become a way of
+  finding out whether an address has an account. For the same reason an unknown
+  address, a wrong password, and an old account with no password set all give
+  the same answer.
+- **The nightly closing job refuses to run without `CRON_SECRET`** in
+  production, rather than treating a missing key as "no key needed", and
+  organizers see a warning until it is set.
+- **The reset-request queue has a ceiling.** Anyone can reach that form without
+  signing in, so unattached requests stop at 40 and stale ones are cleared;
+  a request that matches a real account is never dropped.

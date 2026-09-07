@@ -70,9 +70,27 @@ export function ProfileForm({
         </div>
       </div>
 
-      <p className="hint">
-        You sign in with either of these, so keep at least one.
-      </p>
+      <p className="hint">You sign in with either of these, so keep at least one.</p>
+
+      {/* Only asked for once an identifier has actually been edited, so the
+          common case — fixing a name — stays a single tap. */}
+      {state.needsPassword && (
+        <div className="rounded-xl border border-gold/40 bg-clay-light p-4">
+          <label className="label" htmlFor="currentPassword">
+            Your current password
+          </label>
+          <input
+            id="currentPassword"
+            name="currentPassword"
+            type="password"
+            autoComplete="current-password"
+            className="field"
+          />
+          <p className="hint">
+            Needed because you&rsquo;re changing what you sign in with.
+          </p>
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <SubmitButton />

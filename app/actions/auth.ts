@@ -15,6 +15,7 @@ import {
   requireUser,
   signInWithPassword,
   startSession,
+  verifyPassword,
 } from "@/lib/auth";
 import {
   EMAIL_PATTERN,
@@ -35,6 +36,8 @@ export type FormState = {
    * form then asks where to send the link, carrying the number back with it.
    */
   needsEmail?: string;
+  /** Set when an edit needs the account's current password to go through. */
+  needsPassword?: boolean;
 };
 
 function field(formData: FormData, key: string): string {
@@ -60,14 +63,14 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
 
   if (!result.ok) {
     if (result.reason === "locked") return { error: LOCKOUT_MESSAGE };
-    if (result.reason === "no-password") {
-      return {
-        error:
-          "This account doesn't have a password yet. Use “Forgot your password?” below to set one.",
-      };
-    }
-    // Deliberately identical for an unknown account and a wrong password.
-    return { error: "Those sign-in details don't match. Please check and try again." };
+
+    // Identical for an unknown account, a wrong password, and an old account
+    // that never had a password set — the pointer to the reset link is what
+    // gets that last person moving without telling a stranger anything.
+    return {
+      error:
+        "Those sign-in details don't match. Please check and try again, or use “Forgot your password?” below.",
+    };
   }
 
   await startSession(result.user.id);
@@ -83,6 +86,8 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   const name = field(formData, "name");
 
   if (!name) return { error: "Please enter your name, so organizers know who you are." };
+  if (name.length > 80) return { error: "That name is a bit too long." };
+  if (emailRaw.length > 254) return { error: "Please enter a valid email address." };
 
   if (!emailRaw && !mobileRaw) {
     return {
@@ -150,7 +155,7 @@ export async function requestPasswordReset(
     const sendTo = field(formData, "sendTo");
     if (!sendTo) return { needsEmail: asMobile };
 
-    if (!EMAIL_PATTERN.test(normalizeEmail(sendTo))) {
+    if (sendTo.length > 254 || !EMAIL_PATTERN.test(normalizeEmail(sendTo))) {
       return { needsEmail: asMobile, error: "Please enter a valid email address." };
     }
 
@@ -254,6 +259,23 @@ export async function updateProfile(_prev: FormState, formData: FormData): Promi
     const taken = await db.user.findFirst({ where: { mobile } });
     if (taken && taken.id !== user.id) {
       return { error: "Another account already uses that mobile number." };
+    }
+  }
+
+  // Changing what you sign in with is the one edit worth proving you are the
+  // owner for. Somebody who has got hold of a session could otherwise move the
+  // account onto their own address and keep it; a name change needs no proof.
+  const changingIdentifier = email !== user.email || mobile !== user.mobile;
+  if (changingIdentifier) {
+    const current = String(formData.get("currentPassword") ?? "");
+    if (!current) {
+      return {
+        error: "Enter your current password to change your email address or mobile number.",
+        needsPassword: true,
+      };
+    }
+    if (!user.passwordHash || !(await verifyPassword(current, user.passwordHash))) {
+      return { error: "That password doesn't match the one on your account.", needsPassword: true };
     }
   }
 
