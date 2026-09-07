@@ -91,6 +91,12 @@ model User {
   failedLogins Int       @default(0)
   lockedUntil  DateTime?
 
+  /// Sessions issued before this moment are refused. Moved forward whenever the
+  /// password changes, so resetting it actually evicts whoever else was signed
+  /// in — a stolen cookie outliving the password it was obtained under is the
+  /// thing this exists to prevent.
+  sessionsValidFrom DateTime @default(now())
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

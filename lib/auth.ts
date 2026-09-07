@@ -37,24 +37,37 @@ function sign(payload: string): string {
   return createHmac("sha256", secret()).update(payload).digest("base64url");
 }
 
-/** Session cookie value: `<userId>.<expiryMs>.<hmac>` */
+/**
+ * Session cookie value: `<userId>.<issuedAtMs>.<expiryMs>.<hmac>`
+ *
+ * The issue time is what lets a password change end sessions that were already
+ * running: it is compared against the account's `sessionsValidFrom` on every
+ * request. Cookies in the older three-part format no longer parse, so the
+ * change signs everyone out once.
+ */
 function createSessionValue(userId: string): { value: string; expires: Date } {
-  const expires = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
-  const payload = `${userId}.${expires.getTime()}`;
+  const issuedAt = Date.now();
+  const expires = new Date(issuedAt + SESSION_DAYS * 24 * 60 * 60 * 1000);
+  const payload = `${userId}.${issuedAt}.${expires.getTime()}`;
   return { value: `${payload}.${sign(payload)}`, expires };
 }
 
-function readSessionValue(value: string | undefined): string | null {
+function readSessionValue(
+  value: string | undefined
+): { userId: string; issuedAt: number } | null {
   if (!value) return null;
   const parts = value.split(".");
-  if (parts.length !== 3) return null;
-  const [userId, expiryRaw, signature] = parts;
-  const expected = sign(`${userId}.${expiryRaw}`);
+  if (parts.length !== 4) return null;
+  const [userId, issuedRaw, expiryRaw, signature] = parts;
+  const expected = sign(`${userId}.${issuedRaw}.${expiryRaw}`);
   const a = Buffer.from(signature);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  if (!Number(expiryRaw) || Number(expiryRaw) < Date.now()) return null;
-  return userId;
+
+  const issuedAt = Number(issuedRaw);
+  const expiry = Number(expiryRaw);
+  if (!issuedAt || !expiry || expiry < Date.now()) return null;
+  return { userId, issuedAt };
 }
 
 export function isConfiguredAdmin(email: string | null): boolean {
@@ -112,7 +125,8 @@ const LOCKOUT_MINUTES = 15;
 
 export type SignInResult =
   | { ok: true; user: User }
-  | { ok: false; reason: "invalid" | "locked" | "no-password" };
+  /** "locked" is only ever returned to somebody who gave the right password. */
+  | { ok: false; reason: "invalid" | "locked" };
 
 /** Finds the one account an email address or a mobile number belongs to. */
 export async function findByIdentifier(identifier: Identifier): Promise<User | null> {
@@ -147,13 +161,25 @@ export async function signInWithPassword(
     return { ok: false, reason: "invalid" };
   }
 
-  if (user.lockedUntil && user.lockedUntil > new Date()) {
-    return { ok: false, reason: "locked" };
+  // A locked account still has its password checked, and only says it is locked
+  // to somebody who got the password right. Announcing the lockout to anyone
+  // who asks would turn eight wrong guesses into a way of finding out whether
+  // an address has an account at all.
+  const locked = Boolean(user.lockedUntil && user.lockedUntil > new Date());
+
+  if (!user.passwordHash) {
+    // Spend the same time as a real check, and give the same answer as a wrong
+    // password: that an account exists but has no password set is not something
+    // a stranger should be able to discover.
+    await hashPassword(password);
+    return { ok: false, reason: "invalid" };
   }
 
-  if (!user.passwordHash) return { ok: false, reason: "no-password" };
+  const correct = await verifyPassword(password, user.passwordHash);
 
-  if (await verifyPassword(password, user.passwordHash)) {
+  if (locked) return { ok: false, reason: correct ? "locked" : "invalid" };
+
+  if (correct) {
     if (user.failedLogins > 0 || user.lockedUntil) {
       await db.user.update({
         where: { id: user.id },
@@ -175,7 +201,10 @@ export async function signInWithPassword(
     },
   });
 
-  return { ok: false, reason: failed >= MAX_FAILED_LOGINS ? "locked" : "invalid" };
+  // The account may have just locked, but the answer to a wrong password is the
+  // same either way. The real owner learns about the lockout on their next
+  // attempt with the right password.
+  return { ok: false, reason: "invalid" };
 }
 
 export const LOCKOUT_MESSAGE = `Too many attempts. Please wait ${LOCKOUT_MINUTES} minutes and try again, or reset your password.`;
@@ -281,6 +310,8 @@ export async function consumePasswordResetToken(
       passwordHash: await hashPassword(newPassword),
       failedLogins: 0,
       lockedUntil: null,
+      // Whoever else was signed in as this account is now signed out.
+      sessionsValidFrom: new Date(),
       // Promote an organizer added to ADMIN_EMAILS after they signed up.
       ...(isConfiguredAdmin(user.email) && user.role !== "ADMIN"
         ? { role: "ADMIN" as const }
@@ -302,19 +333,49 @@ export async function consumePasswordResetToken(
  * way — an organizer can then tell somebody they mistyped their number rather
  * than leaving them waiting for a link that was never coming.
  */
+/** The longest address any mail server will accept, so the longest worth storing. */
+const MAX_EMAIL_LENGTH = 254;
+
+/** Requests older than this are stale — nobody is still waiting on them. */
+const REQUEST_LIFETIME_DAYS = 14;
+
+/**
+ * How many requests may be waiting at once. Anyone can reach this path without
+ * signing in, so without a ceiling one person with a script could bury the
+ * organizers' queue in noise and make the real requests impossible to find.
+ */
+const MAX_PENDING_REQUESTS = 40;
+
 export async function requestResetHelp(params: {
   mobile: string;
   email: string;
 }): Promise<void> {
   const mobile = normalizeMobile(params.mobile);
   const email = normalizeEmail(params.email);
-  if (!mobile) return;
+  if (!mobile || !email || email.length > MAX_EMAIL_LENGTH) return;
 
   const user = await db.user.findFirst({ where: { mobile }, orderBy: { createdAt: "asc" } });
+
+  // Housekeeping first, so the ceiling below counts only live requests.
+  await db.passwordResetRequest.deleteMany({
+    where: {
+      status: "PENDING",
+      createdAt: { lt: new Date(Date.now() - REQUEST_LIFETIME_DAYS * 24 * 60 * 60 * 1000) },
+    },
+  });
 
   // One open request per number: asking twice should not give an organizer two
   // things to read, and a later address supersedes an earlier one.
   await db.passwordResetRequest.deleteMany({ where: { mobile, status: "PENDING" } });
+
+  // Past the ceiling, a request that matches a real account still gets through
+  // — a member locked out of their account must not be shut out because
+  // somebody else flooded the queue. Only unattached noise is dropped.
+  if (!user) {
+    const waiting = await db.passwordResetRequest.count({ where: { status: "PENDING" } });
+    if (waiting >= MAX_PENDING_REQUESTS) return;
+  }
+
   await db.passwordResetRequest.create({
     data: { mobile, email, userId: user?.id ?? null },
   });
@@ -393,9 +454,17 @@ export async function endSession(): Promise<void> {
 /** The signed-in user, or null. Memoized for the lifetime of one request. */
 export const getCurrentUser = cache(async (): Promise<User | null> => {
   const store = await cookies();
-  const userId = readSessionValue(store.get(SESSION_COOKIE)?.value);
-  if (!userId) return null;
-  return db.user.findUnique({ where: { id: userId } });
+  const session = readSessionValue(store.get(SESSION_COOKIE)?.value);
+  if (!session) return null;
+
+  const user = await db.user.findUnique({ where: { id: session.userId } });
+  if (!user) return null;
+
+  // Costs nothing extra — the account is already loaded — and is what makes a
+  // password reset throw out sessions opened before it.
+  if (session.issuedAt < user.sessionsValidFrom.getTime()) return null;
+
+  return user;
 });
 
 export async function requireUser(): Promise<User> {

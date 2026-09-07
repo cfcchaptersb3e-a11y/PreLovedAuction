@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { ROLE_LABELS, can, isStaff } from "@/lib/permissions";
-import { emailStatus } from "@/lib/email";
+import { cronWarning, emailStatus } from "@/lib/email";
 import { accountHandle } from "@/lib/identity";
 
 const TABS = [
@@ -19,7 +19,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const tabs = TABS.filter((tab) => can(user.role, tab.capability));
   // Only organizers set up the email service, so only they need telling.
-  const email = can(user.role, "events") ? emailStatus() : { configured: true, warning: null };
+  const isOrganizer = can(user.role, "events");
+  const email = isOrganizer ? emailStatus() : { configured: true, warning: null };
+  const cron = isOrganizer ? cronWarning() : null;
 
   return (
     <div className="space-y-6">
@@ -54,6 +56,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             {email.configured ? "Email needs attention." : "Emails are not being sent."}
           </strong>{" "}
           {email.warning}
+        </p>
+      )}
+
+      {cron && (
+        <p className="rounded-xl border border-gold/40 bg-clay-light p-4 text-sm text-ink">
+          <strong className="font-semibold">The nightly closing job is off.</strong> {cron}
         </p>
       )}
 
