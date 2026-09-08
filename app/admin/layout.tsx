@@ -17,7 +17,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect("/login");
   if (!isStaff(user.role)) redirect("/");
 
-  const tabs = TABS.filter((tab) => can(user.role, tab.capability));
+  // Help is for anyone helping, whatever their role, so it is not behind a
+  // capability like the rest.
+  const tabs = [
+    ...TABS.filter((tab) => can(user.role, tab.capability)),
+    { href: "/admin/help", label: "Help" },
+  ];
   // Only organizers set up the email service, so only they need telling.
   const isOrganizer = can(user.role, "events");
   const email = isOrganizer ? emailStatus() : { configured: true, warning: null };

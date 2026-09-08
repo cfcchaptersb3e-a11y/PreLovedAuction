@@ -72,3 +72,6 @@ jobs:
 
       - name: Check the live auction
         run: npm run check:live
+
+      - name: Check the question pages
+        run: npm run check:faq
