@@ -14,8 +14,8 @@ far" figure starts back at zero and the previous auction is kept as a record.
 ## What it does
 
 **For bidders**
-- Browse live items two to a row on a phone, in pages of 48, with search,
-  category filter and sorting
+- Browse live items two to a row on a phone, 20 to a page by default and
+  50, 100 or all if you prefer, with search, category filter and sorting
 - Sign in with an email address **or** a mobile number, plus a password
 - Place bids, with a clear minimum and one-tap suggested amounts
 - Get an email the moment someone outbids them, and another if they win

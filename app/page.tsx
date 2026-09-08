@@ -5,7 +5,14 @@ import { getCurrentUser } from "@/lib/auth";
 import { GoalProgress } from "@/components/GoalProgress";
 import { ItemGrid } from "@/components/ItemGrid";
 import type { ItemCardData } from "@/components/ItemCard";
-import { PER_PAGE, Pager, clampPage, pageFrom } from "@/components/Pager";
+import {
+  Pager,
+  PerPageLinks,
+  clampPage,
+  pageFrom,
+  perPageFrom,
+  sliceFor,
+} from "@/components/Pager";
 
 // Bids and countdowns change constantly, so this page is always freshly rendered.
 export const dynamic = "force-dynamic";
@@ -25,6 +32,7 @@ export default async function HomePage({
     sort?: string;
     show?: string;
     page?: string;
+    per?: string;
   }>;
 }) {
   // Award anything whose clock ran out, so the page never shows a stale auction.
@@ -60,6 +68,14 @@ export default async function HomePage({
   const showEnded = params.show === "ended";
 
   const requestedPage = pageFrom(params.page);
+  const per = perPageFrom(params.per);
+
+  const filterParams = {
+    q: query || undefined,
+    category: category || undefined,
+    sort: requestedSort !== "ending" ? sortKey : undefined,
+    show: showEnded ? "ended" : undefined,
+  };
 
   const where = {
     eventId: event.id,
@@ -79,14 +95,13 @@ export default async function HomePage({
   // Counted first so a page number past the end lands on the last page rather
   // than on an empty grid.
   const matching = await db.item.count({ where });
-  const page = clampPage(requestedPage, matching);
+  const page = clampPage(requestedPage, matching, per);
 
   const [items, totals, categories] = await Promise.all([
     db.item.findMany({
       where,
       orderBy: showEnded ? { endsAt: "desc" } : SORTS[sortKey].orderBy,
-      skip: (page - 1) * PER_PAGE,
-      take: PER_PAGE,
+      ...sliceFor(page, per),
     }),
     getEventTotals(event.id),
     db.item.findMany({
@@ -219,18 +234,20 @@ export default async function HomePage({
           )}
         </form>
 
+        {/* Above the grid, so the size is chosen before the scrolling starts
+            rather than after it. */}
+        <div className="mb-4 flex justify-end">
+          <PerPageLinks per={per} total={matching} basePath="/" params={filterParams} />
+        </div>
+
         <ItemGrid items={cards} currency={event.currency} />
 
         <Pager
           total={matching}
           page={page}
+          per={per}
           basePath="/"
-          params={{
-            q: query || undefined,
-            category: category || undefined,
-            sort: sortKey !== "ending" ? sortKey : undefined,
-            show: showEnded ? "ended" : undefined,
-          }}
+          params={filterParams}
         />
       </section>
     </div>

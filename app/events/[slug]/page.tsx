@@ -6,7 +6,14 @@ import { getEventTotals, getTopBids } from "@/lib/auction";
 import { GoalProgress } from "@/components/GoalProgress";
 import { ItemGrid } from "@/components/ItemGrid";
 import type { ItemCardData } from "@/components/ItemCard";
-import { PER_PAGE, Pager, clampPage, pageFrom } from "@/components/Pager";
+import {
+  Pager,
+  PerPageLinks,
+  clampPage,
+  pageFrom,
+  perPageFrom,
+  sliceFor,
+} from "@/components/Pager";
 
 export const dynamic = "force-dynamic";
 
@@ -25,22 +32,23 @@ export default async function EventPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; per?: string }>;
 }) {
   const { slug } = await params;
   const event = await db.auctionEvent.findUnique({ where: { slug } });
   if (!event || event.status === "DRAFT") notFound();
 
+  const query = await searchParams;
+  const per = perPageFrom(query.per);
   const where = { eventId: event.id, status: { in: ["LIVE" as const, "ENDED" as const] } };
   const matching = await db.item.count({ where });
-  const page = clampPage(pageFrom((await searchParams).page), matching);
+  const page = clampPage(pageFrom(query.page), matching, per);
 
   const [items, totals] = await Promise.all([
     db.item.findMany({
       where,
       orderBy: [{ winningBidCents: "desc" }, { endsAt: "desc" }],
-      skip: (page - 1) * PER_PAGE,
-      take: PER_PAGE,
+      ...sliceFor(page, per),
     }),
     getEventTotals(event.id),
   ]);
@@ -74,9 +82,18 @@ export default async function EventPage({
       </div>
 
       <GoalProgress totals={totals} currency={event.currency} />
+      <div className="flex justify-end">
+        <PerPageLinks per={per} total={matching} basePath={`/events/${event.slug}`} />
+      </div>
+
       <ItemGrid items={cards} currency={event.currency} />
 
-      <Pager total={matching} page={page} basePath={`/events/${event.slug}`} />
+      <Pager
+        total={matching}
+        page={page}
+        per={per}
+        basePath={`/events/${event.slug}`}
+      />
     </div>
   );
 }
