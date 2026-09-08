@@ -318,6 +318,11 @@ the two things a local run can't check.
 mobile-number sign-in, four security findings and their fixes, browsing an
 auction of a few hundred items, and why the organizer tabs used to feel slow.
 
+[docs/telling-people-how-it-works.md](docs/telling-people-how-it-works.md) is
+about the other half of a fundraiser working: the six printable sheets in
+`handouts/`, the **Questions** page everyone can read, the helper-only **Help**
+page, and what `check:faq` is there to stop anyone quietly dropping.
+
 ## How it's built
 
 Next.js (App Router) with server actions, Prisma and PostgreSQL, Tailwind CSS,
