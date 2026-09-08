@@ -78,7 +78,7 @@ export default async function EventPage({
       orderBy: ITEM_SORTS[sortKey].orderBy,
       ...sliceFor(page, per),
     }),
-    getEventTotals(event.id),
+    getEventTotals(event),
     // Every category in the auction, not just this page's — the filter has to
     // offer what is there to be found.
     db.item.findMany({

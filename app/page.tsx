@@ -90,7 +90,7 @@ export default async function HomePage({
       orderBy: showEnded ? { endsAt: "desc" } : ITEM_SORTS[sortKey].orderBy,
       ...sliceFor(page, per),
     }),
-    getEventTotals(event.id),
+    getEventTotals(event),
     db.item.findMany({
       where: { eventId: event.id, status: { in: ["LIVE", "ENDED"] }, category: { not: null } },
       distinct: ["category"],

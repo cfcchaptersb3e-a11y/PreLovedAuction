@@ -2,7 +2,8 @@ import "server-only";
 import { db } from "@/lib/db";
 import { sendOutbidEmail, sendWinnerEmail } from "@/lib/email";
 import { formatMoney } from "@/lib/money";
-import type { AuctionEvent, BidChannel, Item, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { AuctionEvent, BidChannel, Item } from "@prisma/client";
 
 /**
  * A bid placed inside this window pushes the closing time out, so an item can
@@ -264,40 +265,99 @@ export type EventTotals = {
  * Fundraising totals for one event only — a new event starts back at zero.
  * `raised` counts won items; `collected` counts the ones marked paid.
  */
-export async function getEventTotals(eventId: string): Promise<EventTotals> {
-  const [won, collected, itemsTotal, bidCount, bidders, event] = await Promise.all([
-    db.item.aggregate({
-      where: { eventId, status: "ENDED", winnerId: { not: null } },
+/**
+ * The headline figures for several auctions at once.
+ *
+ * Four queries whatever the number of auctions, rather than six per auction.
+ * The organizer tools and the public list of past drives both show a summary
+ * line for every auction the chapter has ever run, and doing that one auction
+ * at a time meant thirty round trips to the database for a page of five — most
+ * of the wait between tapping a tab and seeing it.
+ */
+export async function getEventTotalsFor(
+  events: { id: string; goalCents: number }[]
+): Promise<Map<string, EventTotals>> {
+  const ids = events.map((event) => event.id);
+  const totals = new Map<string, EventTotals>();
+  if (ids.length === 0) return totals;
+
+  const [sold, collected, listed, bidRows] = await Promise.all([
+    db.item.groupBy({
+      by: ["eventId"],
+      where: { eventId: { in: ids }, status: "ENDED", winnerId: { not: null } },
       _sum: { winningBidCents: true },
       _count: true,
     }),
-    db.item.aggregate({
-      where: { eventId, status: "ENDED", winnerId: { not: null }, paymentStatus: "PAID" },
+    db.item.groupBy({
+      by: ["eventId"],
+      where: {
+        eventId: { in: ids },
+        status: "ENDED",
+        winnerId: { not: null },
+        paymentStatus: "PAID",
+      },
       _sum: { winningBidCents: true },
     }),
-    db.item.count({ where: { eventId, status: { in: ["LIVE", "ENDED"] } } }),
-    db.bid.count({ where: { item: { eventId } } }),
-    db.bid.findMany({
-      where: { item: { eventId } },
-      distinct: ["userId"],
-      select: { userId: true },
+    db.item.groupBy({
+      by: ["eventId"],
+      where: { eventId: { in: ids }, status: { in: ["LIVE", "ENDED"] } },
+      _count: true,
     }),
-    db.auctionEvent.findUnique({ where: { id: eventId } }),
+    // Bids reach an auction through their item, which Prisma cannot group by,
+    // and counting distinct bidders in JavaScript meant reading every bid row.
+    db.$queryRaw<{ eventId: string; bids: bigint; bidders: bigint }[]>`
+      SELECT i."eventId" AS "eventId",
+             COUNT(*) AS bids,
+             COUNT(DISTINCT b."userId") AS bidders
+      FROM "Bid" b
+      JOIN "Item" i ON i."id" = b."itemId"
+      WHERE i."eventId" IN (${Prisma.join(ids)})
+      GROUP BY i."eventId"
+    `,
   ]);
 
-  const raisedCents = won._sum.winningBidCents ?? 0;
-  const goalCents = event?.goalCents ?? 0;
+  const soldBy = new Map(sold.map((row) => [row.eventId, row]));
+  const collectedBy = new Map(collected.map((row) => [row.eventId, row]));
+  const listedBy = new Map(listed.map((row) => [row.eventId, row]));
+  const bidsBy = new Map(bidRows.map((row) => [row.eventId, row]));
 
-  return {
-    raisedCents,
-    collectedCents: collected._sum.winningBidCents ?? 0,
-    goalCents,
-    percent: goalCents > 0 ? Math.min(100, Math.round((raisedCents / goalCents) * 100)) : 0,
-    itemsSold: won._count,
-    itemsTotal,
-    bidCount,
-    bidderCount: bidders.length,
-  };
+  for (const event of events) {
+    const raisedCents = soldBy.get(event.id)?._sum.winningBidCents ?? 0;
+    const goalCents = event.goalCents;
+
+    totals.set(event.id, {
+      raisedCents,
+      collectedCents: collectedBy.get(event.id)?._sum.winningBidCents ?? 0,
+      goalCents,
+      percent: goalCents > 0 ? Math.min(100, Math.round((raisedCents / goalCents) * 100)) : 0,
+      itemsSold: soldBy.get(event.id)?._count ?? 0,
+      itemsTotal: listedBy.get(event.id)?._count ?? 0,
+      bidCount: Number(bidsBy.get(event.id)?.bids ?? 0),
+      bidderCount: Number(bidsBy.get(event.id)?.bidders ?? 0),
+    });
+  }
+
+  return totals;
+}
+
+const EMPTY_TOTALS: EventTotals = {
+  raisedCents: 0,
+  collectedCents: 0,
+  goalCents: 0,
+  percent: 0,
+  itemsSold: 0,
+  itemsTotal: 0,
+  bidCount: 0,
+  bidderCount: 0,
+};
+
+/** The same figures for one auction. Takes the event, which the caller has. */
+export async function getEventTotals(event: {
+  id: string;
+  goalCents: number;
+}): Promise<EventTotals> {
+  const totals = await getEventTotalsFor([event]);
+  return totals.get(event.id) ?? { ...EMPTY_TOTALS, goalCents: event.goalCents };
 }
 
 /** Current top bid per item, for list views. */

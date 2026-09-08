@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { getEventTotals } from "@/lib/auction";
+import { getEventTotalsFor } from "@/lib/auction";
 import { hasCapability } from "@/lib/auth";
 import { requirePageCapability } from "@/lib/page-guards";
 import { formatMoney } from "@/lib/money";
@@ -13,7 +13,7 @@ export default async function AdminHome() {
   const manageEvents = await hasCapability("events");
 
   const events = await db.auctionEvent.findMany({ orderBy: { createdAt: "desc" } });
-  const totals = await Promise.all(events.map((event) => getEventTotals(event.id)));
+  const totals = await getEventTotalsFor(events);
 
   return (
     <div className="space-y-6">
@@ -51,7 +51,9 @@ export default async function AdminHome() {
         </div>
       ) : (
         <div className="space-y-4">
-          {events.map((event, index) => (
+          {events.map((event) => {
+            const eventTotals = totals.get(event.id)!;
+            return (
             <div key={event.id} className="card p-5">
               <div className="flex flex-wrap items-start gap-3">
                 <div className="min-w-0 flex-1">
@@ -79,13 +81,13 @@ export default async function AdminHome() {
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-muted">
-                    {totals[index].itemsTotal} items ·{" "}
+                    {eventTotals.itemsTotal} items ·{" "}
                     <span className="font-semibold text-forest">
-                      {formatMoney(totals[index].raisedCents, event.currency)}
+                      {formatMoney(eventTotals.raisedCents, event.currency)}
                     </span>{" "}
                     raised
-                    {totals[index].goalCents > 0 &&
-                      ` of ${formatMoney(totals[index].goalCents, event.currency)} goal (${totals[index].percent}%)`}
+                    {eventTotals.goalCents > 0 &&
+                      ` of ${formatMoney(eventTotals.goalCents, event.currency)} goal (${eventTotals.percent}%)`}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -96,7 +98,8 @@ export default async function AdminHome() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

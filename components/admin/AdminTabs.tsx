@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 
 /**
@@ -34,10 +34,32 @@ export function AdminTabs({ tabs }: { tabs: { href: string; label: string }[] })
                 : "text-muted hover:bg-white/70 hover:text-ink"
             }`}
           >
-            {tab.label}
+            <TabLabel label={tab.label} />
           </Link>
         );
       })}
     </nav>
+  );
+}
+
+/**
+ * The tab's own text, which marks itself while the page it points at is being
+ * fetched. `usePathname` only changes once the new page has arrived, so
+ * without this the tab you just tapped stays unhighlighted for the whole wait.
+ * Must live inside the Link — that is where useLinkStatus reads from.
+ */
+function TabLabel({ label }: { label: string }) {
+  const { pending } = useLinkStatus();
+
+  return (
+    <span className={`inline-flex items-center justify-center gap-2 ${pending ? "opacity-60" : ""}`}>
+      {label}
+      {pending && (
+        <span
+          aria-hidden
+          className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-line border-t-forest"
+        />
+      )}
+    </span>
   );
 }

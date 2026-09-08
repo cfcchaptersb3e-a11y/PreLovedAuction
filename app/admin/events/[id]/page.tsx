@@ -31,7 +31,7 @@ export default async function ManageEventPage({
       orderBy: [{ status: "asc" }, { endsAt: "asc" }],
       include: { winner: { select: { name: true, email: true } } },
     }),
-    getEventTotals(id),
+    getEventTotals(event),
     db.item.findMany({
       where: { category: { not: null } },
       distinct: ["category"],

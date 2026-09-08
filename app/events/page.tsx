@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
-import { getEventTotals } from "@/lib/auction";
+import { getEventTotalsFor } from "@/lib/auction";
 import { formatMoney } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
@@ -13,8 +13,8 @@ export default async function EventsPage() {
     orderBy: { createdAt: "desc" },
   });
 
-  const totals = await Promise.all(events.map((event) => getEventTotals(event.id)));
-  const grandTotal = totals.reduce((sum, row) => sum + row.raisedCents, 0);
+  const totals = await getEventTotalsFor(events);
+  const grandTotal = [...totals.values()].reduce((sum, row) => sum + row.raisedCents, 0);
 
   return (
     <div className="space-y-6">
@@ -42,7 +42,9 @@ export default async function EventsPage() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {events.map((event, index) => (
+          {events.map((event) => {
+            const eventTotals = totals.get(event.id)!;
+            return (
             <Link
               key={event.id}
               href={`/events/${event.slug}`}
@@ -58,14 +60,15 @@ export default async function EventsPage() {
               </div>
               {event.tagline && <p className="mt-1 text-sm text-muted">{event.tagline}</p>}
               <p className="mt-4 text-2xl font-bold text-forest">
-                {formatMoney(totals[index].raisedCents, event.currency)}
+                {formatMoney(eventTotals.raisedCents, event.currency)}
               </p>
               <p className="text-xs text-muted">
-                raised from {totals[index].itemsSold} of {totals[index].itemsTotal} items
-                {totals[index].goalCents > 0 && ` · ${totals[index].percent}% of goal`}
+                raised from {eventTotals.itemsSold} of {eventTotals.itemsTotal} items
+                {eventTotals.goalCents > 0 && ` · ${eventTotals.percent}% of goal`}
               </p>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
