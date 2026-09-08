@@ -2,10 +2,13 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { finalizeDueItems, getActiveEvent, getEventTotals, getTopBids } from "@/lib/auction";
 import { getCurrentUser } from "@/lib/auth";
+import { ITEM_SORTS, itemTextSearch, sortKeyFrom } from "@/lib/item-filters";
 import { GoalProgress } from "@/components/GoalProgress";
 import { ItemGrid } from "@/components/ItemGrid";
+import { ItemFilters } from "@/components/ItemFilters";
 import type { ItemCardData } from "@/components/ItemCard";
 import {
+  DEFAULT_PER_PAGE,
   Pager,
   PerPageLinks,
   clampPage,
@@ -16,12 +19,6 @@ import {
 
 // Bids and countdowns change constantly, so this page is always freshly rendered.
 export const dynamic = "force-dynamic";
-
-const SORTS = {
-  ending: { label: "Ending soonest", orderBy: { endsAt: "asc" } as const },
-  newest: { label: "Newest first", orderBy: { createdAt: "desc" } as const },
-  title: { label: "A–Z", orderBy: { title: "asc" } as const },
-};
 
 export default async function HomePage({
   searchParams,
@@ -62,9 +59,7 @@ export default async function HomePage({
 
   const query = (params.q ?? "").trim();
   const category = (params.category ?? "").trim();
-  const requestedSort = params.sort ?? "ending";
-  const sortKey: keyof typeof SORTS =
-    requestedSort in SORTS ? (requestedSort as keyof typeof SORTS) : "ending";
+  const sortKey = sortKeyFrom(params.sort);
   const showEnded = params.show === "ended";
 
   const requestedPage = pageFrom(params.page);
@@ -73,7 +68,7 @@ export default async function HomePage({
   const filterParams = {
     q: query || undefined,
     category: category || undefined,
-    sort: requestedSort !== "ending" ? sortKey : undefined,
+    sort: sortKey !== "ending" ? sortKey : undefined,
     show: showEnded ? "ended" : undefined,
   };
 
@@ -81,15 +76,7 @@ export default async function HomePage({
     eventId: event.id,
     status: showEnded ? ("ENDED" as const) : ("LIVE" as const),
     ...(category ? { category } : {}),
-    ...(query
-      ? {
-          OR: [
-            { title: { contains: query, mode: "insensitive" as const } },
-            { description: { contains: query, mode: "insensitive" as const } },
-            { donorName: { contains: query, mode: "insensitive" as const } },
-          ],
-        }
-      : {}),
+    ...itemTextSearch(query),
   };
 
   // Counted first so a page number past the end lands on the last page rather
@@ -100,7 +87,7 @@ export default async function HomePage({
   const [items, totals, categories] = await Promise.all([
     db.item.findMany({
       where,
-      orderBy: showEnded ? { endsAt: "desc" } : SORTS[sortKey].orderBy,
+      orderBy: showEnded ? { endsAt: "desc" } : ITEM_SORTS[sortKey].orderBy,
       ...sliceFor(page, per),
     }),
     getEventTotals(event.id),
@@ -113,6 +100,12 @@ export default async function HomePage({
   ]);
 
   const topBids = await getTopBids(items.map((item) => item.id));
+  // The form wants plain names, and the size choice has to survive a search.
+  const categoryNames = categories
+    .map((row) => row.category)
+    .filter((name): name is string => Boolean(name));
+  const perParam = per === DEFAULT_PER_PAGE ? undefined : String(per);
+
   const cards: ItemCardData[] = items.map((item) => ({
     ...item,
     topBidCents: topBids.get(item.id)?.amountCents ?? 0,
@@ -178,61 +171,18 @@ export default async function HomePage({
           </div>
         </div>
 
-        <form className="card mb-5 flex flex-wrap items-end gap-3 p-4" action="/">
-          {showEnded && <input type="hidden" name="show" value="ended" />}
-          <div className="min-w-[12rem] flex-1">
-            <label className="label" htmlFor="q">
-              Search
-            </label>
-            <input
-              id="q"
-              name="q"
-              defaultValue={query}
-              placeholder="Bag, guitar, member's name…"
-              className="field"
-            />
-          </div>
-          {categories.length > 0 && (
-            <div className="w-40">
-              <label className="label" htmlFor="category">
-                Category
-              </label>
-              <select id="category" name="category" defaultValue={category} className="field">
-                <option value="">All</option>
-                {categories.map(
-                  (row) =>
-                    row.category && (
-                      <option key={row.category} value={row.category}>
-                        {row.category}
-                      </option>
-                    )
-                )}
-              </select>
-            </div>
-          )}
-          {!showEnded && (
-            <div className="w-44">
-              <label className="label" htmlFor="sort">
-                Sort by
-              </label>
-              <select id="sort" name="sort" defaultValue={sortKey} className="field">
-                {Object.entries(SORTS).map(([key, value]) => (
-                  <option key={key} value={key}>
-                    {value.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          <button type="submit" className="btn-primary">
-            Apply
-          </button>
-          {(query || category || sortKey !== "ending") && (
-            <Link href={showEnded ? "/?show=ended" : "/"} className="btn-secondary">
-              Clear
-            </Link>
-          )}
-        </form>
+        <ItemFilters
+          action="/"
+          categories={categoryNames}
+          query={query}
+          category={category}
+          // Ended items are always shown most recently closed first.
+          sort={showEnded ? null : sortKey}
+          // The Live / Ended buttons above already do this job here.
+          status={null}
+          hidden={{ show: showEnded ? "ended" : undefined, per: perParam }}
+          clearHref={showEnded ? "/?show=ended" : "/"}
+        />
 
         {/* Above the grid, so the size is chosen before the scrolling starts
             rather than after it. */}

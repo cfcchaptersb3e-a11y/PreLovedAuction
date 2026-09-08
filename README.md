@@ -15,7 +15,10 @@ far" figure starts back at zero and the previous auction is kept as a record.
 
 **For bidders**
 - Browse live items two to a row on a phone, 20 to a page by default and
-  50, 100 or all if you prefer, with search, category filter and sorting
+  50, 100 or all if you prefer
+- Search by title, description or who provided an item, filter by category,
+  and sort — on the home page and on each auction's own page, which also
+  filters by whether an item is still open or already sold
 - Sign in with an email address **or** a mobile number, plus a password
 - Place bids, with a clear minimum and one-tap suggested amounts
 - Get an email the moment someone outbids them, and another if they win

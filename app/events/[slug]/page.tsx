@@ -5,8 +5,10 @@ import { db } from "@/lib/db";
 import { getEventTotals, getTopBids } from "@/lib/auction";
 import { GoalProgress } from "@/components/GoalProgress";
 import { ItemGrid } from "@/components/ItemGrid";
+import { ItemFilters } from "@/components/ItemFilters";
 import type { ItemCardData } from "@/components/ItemCard";
 import {
+  DEFAULT_PER_PAGE,
   Pager,
   PerPageLinks,
   clampPage,
@@ -14,6 +16,14 @@ import {
   perPageFrom,
   sliceFor,
 } from "@/components/Pager";
+
+import {
+  ITEM_SORTS,
+  ITEM_STATUS_FILTERS,
+  itemTextSearch,
+  sortKeyFrom,
+  statusFilterFrom,
+} from "@/lib/item-filters";
 
 export const dynamic = "force-dynamic";
 
@@ -32,26 +42,64 @@ export default async function EventPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ page?: string; per?: string }>;
+  searchParams: Promise<{
+    page?: string;
+    per?: string;
+    q?: string;
+    category?: string;
+    sort?: string;
+    status?: string;
+  }>;
 }) {
   const { slug } = await params;
   const event = await db.auctionEvent.findUnique({ where: { slug } });
   if (!event || event.status === "DRAFT") notFound();
 
-  const query = await searchParams;
-  const per = perPageFrom(query.per);
-  const where = { eventId: event.id, status: { in: ["LIVE" as const, "ENDED" as const] } };
-  const matching = await db.item.count({ where });
-  const page = clampPage(pageFrom(query.page), matching, per);
+  const chosen = await searchParams;
+  const per = perPageFrom(chosen.per);
+  const search = (chosen.q ?? "").trim();
+  const category = (chosen.category ?? "").trim();
+  const sortKey = sortKeyFrom(chosen.sort);
+  const statusFilter = statusFilterFrom(chosen.status);
 
-  const [items, totals] = await Promise.all([
+  const where = {
+    eventId: event.id,
+    status: { in: [...ITEM_STATUS_FILTERS[statusFilter].statuses] },
+    ...(category ? { category } : {}),
+    ...itemTextSearch(search),
+  };
+
+  const matching = await db.item.count({ where });
+  const page = clampPage(pageFrom(chosen.page), matching, per);
+
+  const [items, totals, categoryRows] = await Promise.all([
     db.item.findMany({
       where,
-      orderBy: [{ winningBidCents: "desc" }, { endsAt: "desc" }],
+      orderBy: ITEM_SORTS[sortKey].orderBy,
       ...sliceFor(page, per),
     }),
     getEventTotals(event.id),
+    // Every category in the auction, not just this page's — the filter has to
+    // offer what is there to be found.
+    db.item.findMany({
+      where: { eventId: event.id, status: { in: ["LIVE", "ENDED"] }, category: { not: null } },
+      distinct: ["category"],
+      select: { category: true },
+      orderBy: { category: "asc" },
+    }),
   ]);
+
+  const categoryNames = categoryRows
+    .map((row) => row.category)
+    .filter((name): name is string => Boolean(name));
+
+  const filterParams = {
+    q: search || undefined,
+    category: category || undefined,
+    sort: sortKey !== "ending" ? sortKey : undefined,
+    status: statusFilter !== "all" ? statusFilter : undefined,
+  };
+  const basePath = `/events/${event.slug}`;
 
   const topBids = await getTopBids(items.map((item) => item.id));
   const cards: ItemCardData[] = items.map((item) => ({
@@ -82,8 +130,19 @@ export default async function EventPage({
       </div>
 
       <GoalProgress totals={totals} currency={event.currency} />
+      <ItemFilters
+        action={basePath}
+        categories={categoryNames}
+        query={search}
+        category={category}
+        sort={sortKey}
+        status={statusFilter}
+        hidden={{ per: per === DEFAULT_PER_PAGE ? undefined : String(per) }}
+        clearHref={basePath}
+      />
+
       <div className="flex justify-end">
-        <PerPageLinks per={per} total={matching} basePath={`/events/${event.slug}`} />
+        <PerPageLinks per={per} total={matching} basePath={basePath} params={filterParams} />
       </div>
 
       <ItemGrid items={cards} currency={event.currency} />
@@ -92,7 +151,8 @@ export default async function EventPage({
         total={matching}
         page={page}
         per={per}
-        basePath={`/events/${event.slug}`}
+        basePath={basePath}
+        params={filterParams}
       />
     </div>
   );
