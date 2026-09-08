@@ -132,20 +132,20 @@ async function main() {
     placeBid({ itemId: item.id, userId: carol.id, amountCents: 99_999 }), /not open|closed/);
 
   // --- totals -------------------------------------------------------------
-  const totals = await getEventTotals(event.id);
+  const totals = await getEventTotals(event);
   check("raised counts only won items", totals.raisedCents === 15_000, String(totals.raisedCents));
   check("collected is zero until marked paid", totals.collectedCents === 0);
   check("goal percentage computed", totals.percent === 15, String(totals.percent));
 
   await db.item.update({ where: { id: item.id }, data: { paymentStatus: "PAID" } });
-  const afterPaid = await getEventTotals(event.id);
+  const afterPaid = await getEventTotals(event);
   check("collected reflects payments", afterPaid.collectedCents === 15_000);
 
   // --- a second event starts from zero ------------------------------------
   const nextEvent = await db.auctionEvent.create({
     data: { name: `Next ${suffix}`, slug: `next-${suffix}`, goalCents: 200_000, status: "DRAFT" },
   });
-  const nextTotals = await getEventTotals(nextEvent.id);
+  const nextTotals = await getEventTotals(nextEvent);
   check("a new auction's total starts at zero",
     nextTotals.raisedCents === 0 && nextTotals.percent === 0);
 
