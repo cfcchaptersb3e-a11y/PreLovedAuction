@@ -37,6 +37,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     ...(liveEvent ? [{ href: "/live", label: "🔴 Live now" }] : []),
     { href: "/watchlist", label: watchCount > 0 ? `Watchlist (${watchCount})` : "Watchlist" },
     { href: "/events", label: "Past auctions" },
+    { href: "/faq", label: "Questions" },
     ...(user ? [{ href: "/account", label: "My bids" }] : []),
     ...(user && isStaff(user.role)
       ? [{ href: staffLandingPath(user.role), label: "Organizer tools" }]
@@ -122,6 +123,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               chapter&rsquo;s activities. Thank you for bidding and for your support.
             </p>
             <p className="mt-4 text-xs">
+              New to this? <Link href="/faq" className="font-medium text-ink hover:underline">
+                Questions
+              </Link>{" "}
+              covers signing up, bidding and the live auction night.
+            </p>
+            <p className="mt-2 text-xs">
               Questions about an item, payment or pickup? Reply to your confirmation email and an
               organizer will help.
             </p>

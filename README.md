@@ -24,6 +24,7 @@ far" figure starts back at zero and the previous auction is kept as a record.
 - Get an email the moment someone outbids them, and another if they win
   (an account with only a mobile number has nowhere to send these — see **Signing in**)
 - Star items to a personal watchlist
+- Read **Questions** for how signing up, bidding and the live night work
 - See every bid they've placed and everything they've won, with payment details
 
 **Roles**
@@ -40,6 +41,10 @@ job and nobody breaks the auction by accident:
 
 Organizers change roles under **People**. Anyone whose address is listed in
 `ADMIN_EMAILS` becomes an organizer when they sign up.
+
+Every helper also gets a **Help** tab in the organizer tools: the same
+questions again, but for their job rather than for bidding, with their own
+role's section first. It is not visible to bidders.
 
 **For organizers**
 - Create an auction, set the goal, the currency and the payment/pickup instructions
@@ -92,6 +97,7 @@ Useful commands:
 | `npm run check:auth` | Run the password and sign-in checks |
 | `npm run check:roles` | Run the role permission checks |
 | `npm run check:live` | Run the live auction checks |
+| `npm run check:faq` | Check the question pages |
 
 > Both `check` scripts write to whatever `DATABASE_URL` points at. Point it at a
 > scratch database, not the live one.

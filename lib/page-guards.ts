@@ -1,7 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { can, staffLandingPath, type Capability } from "@/lib/permissions";
+import { can, isStaff, staffLandingPath, type Capability } from "@/lib/permissions";
 import type { User } from "@prisma/client";
 
 /**
@@ -15,5 +15,17 @@ export async function requirePageCapability(capability: Capability): Promise<Use
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (!can(user.role, capability)) redirect(staffLandingPath(user.role));
+  return user;
+}
+
+/**
+ * For a page any helper may open, whatever their particular role. The
+ * organizer layout guards this too; having it on the page as well means the
+ * page cannot be moved out from under that layout and quietly become public.
+ */
+export async function requireStaffPage(): Promise<User> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!isStaff(user.role)) redirect("/");
   return user;
 }

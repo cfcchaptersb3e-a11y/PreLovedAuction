@@ -15,6 +15,7 @@
     "check:auth": "tsx --conditions react-server scripts/check-auth.ts",
     "check:roles": "tsx --conditions react-server scripts/check-roles.ts",
     "check:live": "tsx --conditions react-server scripts/check-live.ts",
+    "check:faq": "tsx --conditions react-server scripts/check-faq.ts",
     "db:indexes": "tsx --conditions react-server scripts/ensure-indexes.ts",
     "handouts:seed": "tsx --conditions react-server handouts/seed.ts",
     "handouts": "node handouts/build.mjs"
