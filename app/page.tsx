@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { GoalProgress } from "@/components/GoalProgress";
 import { ItemGrid } from "@/components/ItemGrid";
 import type { ItemCardData } from "@/components/ItemCard";
+import { PER_PAGE, Pager, clampPage, pageFrom } from "@/components/Pager";
 
 // Bids and countdowns change constantly, so this page is always freshly rendered.
 export const dynamic = "force-dynamic";
@@ -18,7 +19,13 @@ const SORTS = {
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; sort?: string; show?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    category?: string;
+    sort?: string;
+    show?: string;
+    page?: string;
+  }>;
 }) {
   // Award anything whose clock ran out, so the page never shows a stale auction.
   await finalizeDueItems();
@@ -52,23 +59,34 @@ export default async function HomePage({
     requestedSort in SORTS ? (requestedSort as keyof typeof SORTS) : "ending";
   const showEnded = params.show === "ended";
 
+  const requestedPage = pageFrom(params.page);
+
+  const where = {
+    eventId: event.id,
+    status: showEnded ? ("ENDED" as const) : ("LIVE" as const),
+    ...(category ? { category } : {}),
+    ...(query
+      ? {
+          OR: [
+            { title: { contains: query, mode: "insensitive" as const } },
+            { description: { contains: query, mode: "insensitive" as const } },
+            { donorName: { contains: query, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+
+  // Counted first so a page number past the end lands on the last page rather
+  // than on an empty grid.
+  const matching = await db.item.count({ where });
+  const page = clampPage(requestedPage, matching);
+
   const [items, totals, categories] = await Promise.all([
     db.item.findMany({
-      where: {
-        eventId: event.id,
-        status: showEnded ? "ENDED" : "LIVE",
-        ...(category ? { category } : {}),
-        ...(query
-          ? {
-              OR: [
-                { title: { contains: query, mode: "insensitive" as const } },
-                { description: { contains: query, mode: "insensitive" as const } },
-                { donorName: { contains: query, mode: "insensitive" as const } },
-              ],
-            }
-          : {}),
-      },
+      where,
       orderBy: showEnded ? { endsAt: "desc" } : SORTS[sortKey].orderBy,
+      skip: (page - 1) * PER_PAGE,
+      take: PER_PAGE,
     }),
     getEventTotals(event.id),
     db.item.findMany({
@@ -125,7 +143,9 @@ export default async function HomePage({
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <h2 className="mr-auto text-xl font-bold">
             {showEnded ? "Sold & ended items" : "Items up for bidding"}
-            <span className="ml-2 text-sm font-normal text-muted">({cards.length})</span>
+            {/* The whole matching set, not the page — the pager below says
+                which slice of it is on screen. */}
+            <span className="ml-2 text-sm font-normal text-muted">({matching})</span>
           </h2>
           <div className="flex gap-1 rounded-lg border border-line bg-white p-1 text-sm">
             <Link
@@ -200,6 +220,18 @@ export default async function HomePage({
         </form>
 
         <ItemGrid items={cards} currency={event.currency} />
+
+        <Pager
+          total={matching}
+          page={page}
+          basePath="/"
+          params={{
+            q: query || undefined,
+            category: category || undefined,
+            sort: sortKey !== "ending" ? sortKey : undefined,
+            show: showEnded ? "ended" : undefined,
+          }}
+        />
       </section>
     </div>
   );

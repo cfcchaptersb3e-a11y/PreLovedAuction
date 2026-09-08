@@ -60,26 +60,34 @@ export function ItemCard({ item, currency }: { item: ItemCardData; currency: str
         )}
       </div>
 
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex flex-1 flex-col p-3 sm:p-4">
         {item.category && (
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">
             {item.category}
           </p>
         )}
-        <h3 className="line-clamp-2 font-semibold leading-snug">{item.title}</h3>
+        <h3 className="line-clamp-2 text-sm font-semibold leading-snug sm:text-base">
+          {item.title}
+        </h3>
         {item.donorName && (
-          <p className="mt-1 text-xs text-muted">Provided by {item.donorName}</p>
+          <p className="mt-1 line-clamp-1 text-[11px] text-muted sm:text-xs">
+            Provided by {item.donorName}
+          </p>
         )}
 
         <div className="mt-auto pt-3">
-          <div className="flex items-end justify-between gap-2">
-            <div>
-              <p className="text-[11px] uppercase tracking-wider text-muted">
+          {/* Price over countdown in a narrow column, side by side once there
+              is room — at two-up on a phone they will not fit on one line. */}
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-end sm:justify-between sm:gap-2">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-muted sm:text-[11px]">
                 {ended ? (item.winningBidCents ? "Winning bid" : "No bids") : item.bidCount > 0 ? "Current bid" : "Starting bid"}
               </p>
-              <p className="text-lg font-bold text-forest">{formatMoney(price, currency)}</p>
+              <p className="text-base font-bold text-forest sm:text-lg">
+                {formatMoney(price, currency)}
+              </p>
             </div>
-            <p className="text-right text-xs">
+            <p className="text-xs sm:text-right">
               {ended ? (
                 <span className="text-muted">
                   {item.bidCount} {item.bidCount === 1 ? "bid" : "bids"}

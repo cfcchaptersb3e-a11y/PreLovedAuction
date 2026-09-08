@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { ROLE_LABELS, can, isStaff } from "@/lib/permissions";
 import { cronWarning, emailStatus } from "@/lib/email";
 import { accountHandle } from "@/lib/identity";
+import { AdminTabs } from "@/components/admin/AdminTabs";
 
 const TABS = [
   { href: "/admin", label: "Auctions", capability: "items" as const },
@@ -33,17 +33,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <span className="font-medium text-ink">{ROLE_LABELS[user.role]}</span>
           </p>
         </div>
-        <nav className="flex flex-wrap gap-1">
-          {tabs.map((tab) => (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-muted hover:bg-parchment hover:text-ink"
-            >
-              {tab.label}
-            </Link>
-          ))}
-        </nav>
+        <AdminTabs tabs={tabs.map(({ href, label }) => ({ href, label }))} />
       </div>
 
       {email.warning && (

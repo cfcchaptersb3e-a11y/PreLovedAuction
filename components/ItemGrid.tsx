@@ -14,7 +14,9 @@ export function ItemGrid({ items, currency }: { items: ItemCardData[]; currency:
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    // Two to a row on a phone. One per row turns a hundred items into a very
+    // long thumb-scroll, and the card is built to survive the narrower column.
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
       {items.map((item) => (
         <ItemCard key={item.id} item={item} currency={currency} />
       ))}
