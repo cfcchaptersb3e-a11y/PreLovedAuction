@@ -308,6 +308,10 @@ records a full run — bidding, an outbid, a snipe at the buzzer, an item closin
 on its own, a reserve nobody met, and the winner paid and exported — and lists
 the two things a local run can't check.
 
+[docs/since-the-dry-run.md](docs/since-the-dry-run.md) picks up from there:
+mobile-number sign-in, four security findings and their fixes, browsing an
+auction of a few hundred items, and why the organizer tabs used to feel slow.
+
 ## How it's built
 
 Next.js (App Router) with server actions, Prisma and PostgreSQL, Tailwind CSS,
