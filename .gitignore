@@ -11,3 +11,14 @@ build
 next-env.d.ts
 .vercel
 tsconfig.tsbuildinfo
+
+# Handouts. The print-ready PDFs are committed because they are what gets
+# printed and passed around. Everything else here is build output, regenerated
+# by `node handouts/shoot.mjs && npm run handouts`, and a stale screenshot of
+# an old version of a page is worse than no screenshot at all.
+#
+# The blanket "out" rule above would otherwise swallow the PDFs too.
+handouts/shots/
+!handouts/out/
+handouts/out/*
+!handouts/out/*.pdf
