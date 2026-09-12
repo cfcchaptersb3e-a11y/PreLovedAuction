@@ -87,7 +87,11 @@ export function LiveLotView({
     <div className="card overflow-hidden">
       {photo && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={photo} alt={title ?? ""} className="aspect-[4/3] w-full object-cover" />
+        <img
+          src={photo}
+          alt={title ?? ""}
+          className="max-h-[55vh] w-full bg-parchment object-contain"
+        />
       )}
       <div className="p-5">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-clay">

@@ -100,7 +100,7 @@ export function ItemManager({
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-parchment">
                   {item.imageUrls[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.imageUrls[0]} alt="" className="h-full w-full object-cover" />
+                    <img src={item.imageUrls[0]} alt="" className="h-full w-full object-contain" />
                   ) : (
                     <div className="grid h-full place-items-center text-xl text-muted/40" aria-hidden>
                       🎁
