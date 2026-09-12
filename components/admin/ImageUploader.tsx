@@ -91,7 +91,7 @@ export function ImageUploader({
               <img
                 src={url}
                 alt={`Photo ${index + 1}`}
-                className="h-20 w-20 rounded-lg border border-line object-cover"
+                className="h-20 w-20 rounded-lg border border-line bg-parchment object-contain"
               />
               <button
                 type="button"

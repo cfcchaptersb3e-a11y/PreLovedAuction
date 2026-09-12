@@ -31,13 +31,15 @@ export function ItemCard({ item, currency }: { item: ItemCardData; currency: str
       href={`/items/${item.id}`}
       className="card group flex flex-col overflow-hidden transition hover:border-forest/40 hover:shadow-md"
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-parchment">
+      {/* A square tile fits a portrait photo as fairly as a landscape one, and
+          the photo is fitted inside it whole — never cropped to the frame. */}
+      <div className="relative aspect-square overflow-hidden bg-parchment">
         {item.imageUrls[0] ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.imageUrls[0]}
             alt={item.title}
-            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+            className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
             loading="lazy"
           />
         ) : (
